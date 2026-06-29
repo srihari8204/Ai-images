@@ -20,8 +20,11 @@ if not settings.database_url.startswith("sqlite"):
         max_overflow=settings.db_max_overflow,
         pool_pre_ping=True,
     )
+# Managed Postgres (e.g. Neon) requires TLS; asyncpg takes it via connect_args.
+if settings.db_requires_ssl:
+    _engine_kwargs["connect_args"] = {"ssl": True}
 
-engine = create_async_engine(settings.database_url, **_engine_kwargs)
+engine = create_async_engine(settings.async_database_url, **_engine_kwargs)
 
 SessionLocal = async_sessionmaker(
     bind=engine,

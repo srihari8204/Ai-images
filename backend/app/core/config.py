@@ -169,10 +169,46 @@ class Settings(BaseSettings):
     def is_prod(self) -> bool:
         return self.environment in (Environment.PROD, Environment.STAGING)
 
+    @staticmethod
+    def _strip_query_params(url: str, params: tuple[str, ...]) -> str:
+        """Remove libpq-only query params (asyncpg rejects them; SSL is handled
+        via connect_args instead). Keeps the rest of the query string intact."""
+        if "?" not in url:
+            return url
+        base, _, query = url.partition("?")
+        kept = [
+            kv for kv in query.split("&")
+            if kv and kv.split("=", 1)[0] not in params
+        ]
+        return base + ("?" + "&".join(kept) if kept else "")
+
+    @property
+    def db_requires_ssl(self) -> bool:
+        u = self.database_url.lower()
+        return "sslmode=require" in u or "ssl=require" in u or "neon.tech" in u
+
+    @property
+    def async_database_url(self) -> str:
+        """Async DSN for the API (asyncpg driver, libpq-only params stripped)."""
+        url = self.database_url
+        if url.startswith("postgresql://"):
+            url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+        elif url.startswith("postgres://"):  # some providers use this scheme
+            url = url.replace("postgres://", "postgresql+asyncpg://", 1)
+        return self._strip_query_params(url, ("sslmode", "channel_binding"))
+
     @property
     def sync_database_url(self) -> str:
-        """Synchronous DSN for Alembic and the RQ worker."""
-        return self.database_url.replace("+asyncpg", "+psycopg2")
+        """Synchronous DSN for Alembic and the RQ worker (psycopg2 driver)."""
+        url = self.database_url
+        if url.startswith("postgresql://"):
+            url = url.replace("postgresql://", "postgresql+psycopg2://", 1)
+        elif url.startswith("postgres://"):
+            url = url.replace("postgres://", "postgresql+psycopg2://", 1)
+        # psycopg2 understands sslmode; drop channel_binding which it may not.
+        return self._strip_query_params(
+            url.replace("+asyncpg", "+psycopg2"), ("channel_binding",)
+        )
 
 
 @lru_cache
