@@ -1,0 +1,22 @@
+{
+  "Rules": [
+    {
+      "ID": "exports-expiry-7d",
+      "Status": "Enabled",
+      "Filter": { "Prefix": "" },
+      "Expiration": { "Days": 7 }
+    },
+    {
+      "ID": "uploads-backstop-365d",
+      "Status": "Enabled",
+      "Filter": { "Prefix": "" },
+      "Expiration": { "Days": 365 }
+    },
+    {
+      "ID": "outputs-backstop-365d",
+      "Status": "Enabled",
+      "Filter": { "Prefix": "" },
+      "Expiration": { "Days": 365 }
+    }
+  ]
+}

@@ -1,0 +1,39 @@
+# Worker image — GPU pipeline consumer. Shares the backend app package.
+# For real GPU deployment, switch the base to an nvidia/cuda runtime image and
+# uncomment the GPU deps in ai-engine/requirements.txt.
+FROM python:3.12-slim AS base
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PYTHONPATH=/app/backend:/app/ai-engine
+
+WORKDIR /app/ai-engine
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        build-essential libpq-dev libjpeg-dev zlib1g-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install backend deps (shared), then any worker-only deps.
+COPY backend/requirements.txt /app/backend/requirements.txt
+RUN pip install -r /app/backend/requirements.txt
+
+# Optional: install a CPU diffusion stack so real images can be generated locally
+# without a GPU (SD-Turbo). Disabled by default; enabled via build arg for local
+# testing. Production uses the GPU FLUX stack instead.
+ARG INSTALL_CPU_MODELS=false
+RUN if [ "$INSTALL_CPU_MODELS" = "true" ]; then \
+        pip install --index-url https://download.pytorch.org/whl/cpu torch==2.5.1 && \
+        pip install diffusers==0.32.1 transformers==4.48.0 accelerate==1.2.1 safetensors==0.4.5 ; \
+    fi
+
+COPY backend/ /app/backend/
+COPY ai-engine/ /app/ai-engine/
+
+RUN useradd --create-home appuser && chown -R appuser /app
+# Model cache dir owned by appuser so a mounted named volume inherits write perms.
+RUN mkdir -p /models/hf && chown -R appuser /models
+USER appuser
+
+EXPOSE 9100
+CMD ["python", "-m", "ai_engine.worker"]

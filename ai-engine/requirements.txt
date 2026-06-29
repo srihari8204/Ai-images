@@ -1,0 +1,19 @@
+# Worker shares the backend app package for DB/finalize/storage logic.
+# Install the backend requirements first (or mount it on PYTHONPATH), then these.
+-r ../backend/requirements.txt
+
+# ---- GPU / model stack (optional in dev) ----
+# These are heavy and require CUDA. The pipeline degrades gracefully to a
+# deterministic CPU stand-in when they are absent, so dev/test runs without them.
+# Uncomment for a real GPU deployment:
+# torch==2.5.1
+# diffusers==0.32.1
+# transformers==4.48.0
+# accelerate==1.2.1
+# safetensors==0.4.5
+# controlnet-aux==0.4.0
+# insightface==0.7.3          # InstantID
+# gfpgan==1.3.8
+# realesrgan==0.3.0
+# rembg==2.0.59               # background removal
+# nvidia-ml-py==12.560.30     # GPU/VRAM telemetry

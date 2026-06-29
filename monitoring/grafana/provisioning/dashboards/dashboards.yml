@@ -1,0 +1,10 @@
+apiVersion: 1
+providers:
+  - name: ai-mirror
+    orgId: 1
+    folder: "AI Mirror"
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: /var/lib/grafana/dashboards

@@ -1,0 +1,64 @@
+# Alert rules: error rate, queue backlog, payment failures, GPU saturation.
+groups:
+  - name: api
+    rules:
+      - alert: HighErrorRate
+        expr: |
+          sum(rate(http_errors_total[5m]))
+            / clamp_min(sum(rate(http_requests_total[5m])), 1) > 0.05
+        for: 5m
+        labels: { severity: critical }
+        annotations:
+          summary: "API 5xx error rate above 5%"
+          description: "Error rate has exceeded 5% for 5 minutes."
+
+      - alert: HighRequestLatency
+        expr: |
+          histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le)) > 2
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "API p95 latency above 2s"
+
+  - name: queue
+    rules:
+      - alert: QueueBacklog
+        expr: sum(queue_depth) > 200
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "Generation queue backlog is high"
+          description: "More than 200 jobs pending for 10 minutes — scale workers."
+
+      - alert: QueueStalled
+        expr: sum(queue_depth) > 50 and rate(worker_jobs_processed_total[10m]) == 0
+        for: 10m
+        labels: { severity: critical }
+        annotations:
+          summary: "Queue has work but no jobs are being processed"
+
+  - name: payments
+    rules:
+      - alert: PaymentFailures
+        expr: increase(payments_total{status="failed"}[15m]) > 5
+        for: 5m
+        labels: { severity: critical }
+        annotations:
+          summary: "Multiple payment failures in the last 15 minutes"
+
+  - name: gpu
+    rules:
+      - alert: GpuSaturation
+        expr: avg(worker_gpu_utilization_percent) > 95
+        for: 15m
+        labels: { severity: warning }
+        annotations:
+          summary: "GPU utilization sustained above 95%"
+          description: "Consider adding GPU workers; queue wait will grow."
+
+      - alert: GpuMemoryPressure
+        expr: avg(worker_gpu_memory_used_mb) / clamp_min(avg(worker_gpu_memory_used_mb), 1) > 0.9
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "GPU VRAM pressure high"

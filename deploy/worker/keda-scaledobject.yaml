@@ -1,0 +1,26 @@
+# Autoscale GPU workers on queue depth (KEDA). Requires the KEDA operator.
+# Scales workers up as the Redis generation queues grow, matching expensive GPU
+# capacity to actual backlog (design: GPU is the primary scaling bottleneck).
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: worker-queue-scaler
+  namespace: ai-mirror
+spec:
+  scaleTargetRef:
+    name: worker
+  minReplicaCount: 1
+  maxReplicaCount: 30
+  cooldownPeriod: 120
+  pollingInterval: 15
+  triggers:
+    - type: redis
+      metadata:
+        address: redis.ai-mirror.svc:6379
+        listName: rq:queue:generation-high
+        listLength: "5"
+    - type: redis
+      metadata:
+        address: redis.ai-mirror.svc:6379
+        listName: rq:queue:generation
+        listLength: "10"

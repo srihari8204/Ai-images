@@ -1,0 +1,32 @@
+# GPU model stack for production inference. Installed on top of the shared backend
+# requirements. Use with docker/Dockerfile.worker.gpu (CUDA base image).
+#
+# Pin to versions compatible with your CUDA runtime. Torch is installed from the
+# CUDA wheel index in the Dockerfile, not here.
+
+diffusers==0.32.1
+transformers==4.48.0
+accelerate==1.2.1
+safetensors==0.4.5
+huggingface-hub==0.27.1
+sentencepiece==0.2.0
+protobuf==5.29.2
+
+# Conditioning / control
+controlnet-aux==0.4.0
+opencv-python-headless==4.10.0.84
+
+# Face consistency (InstantID)
+insightface==0.7.3
+onnxruntime-gpu==1.20.1
+
+# Restoration / upscaling
+gfpgan==1.3.8
+realesrgan==0.3.0
+basicsr==1.4.2
+
+# Background removal
+rembg==2.0.59
+
+# GPU telemetry
+nvidia-ml-py==12.560.30

@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-worker
+  labels: { app: worker }
+spec:
+  replicas: {{ .Values.worker.replicas }}
+  selector:
+    matchLabels: { app: worker }
+  template:
+    metadata:
+      labels: { app: worker }
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9100"
+    spec:
+      containers:
+        - name: worker
+          image: "{{ .Values.image.registry }}/worker:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["python", "-m", "ai_engine.worker"]
+          ports: [{ containerPort: 9100 }]
+          envFrom:
+            - configMapRef: { name: {{ .Release.Name }}-config }
+            - secretRef: { name: {{ .Release.Name }}-secrets }
+          resources: {{ toYaml .Values.worker.resources | nindent 12 }}
+{{- if .Values.worker.keda.enabled }}
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: {{ .Release.Name }}-worker
+spec:
+  scaleTargetRef:
+    name: {{ .Release.Name }}-worker
+  minReplicaCount: {{ .Values.worker.keda.minReplicaCount }}
+  maxReplicaCount: {{ .Values.worker.keda.maxReplicaCount }}
+  triggers:
+{{- range .Values.worker.keda.queues }}
+    - type: redis
+      metadata:
+        address: redis.{{ $.Release.Namespace }}.svc:6379
+        listName: {{ .name }}
+        listLength: "{{ .length }}"
+{{- end }}
+{{- end }}

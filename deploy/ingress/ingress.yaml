@@ -1,0 +1,26 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ai-mirror
+  namespace: ai-mirror
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/proxy-body-size: "30m"
+    # SSE: disable response buffering for the events stream.
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      location ~ ^/api/v1/jobs/.*/events$ { proxy_buffering off; }
+spec:
+  tls:
+    - hosts: [app.aimirror.example]
+      secretName: ai-mirror-tls
+  rules:
+    - host: app.aimirror.example
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: api
+                port: { number: 8000 }

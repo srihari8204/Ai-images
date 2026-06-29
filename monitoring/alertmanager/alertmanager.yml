@@ -1,0 +1,22 @@
+# Alertmanager routing. Replace the webhook/Slack receiver with your channel.
+global:
+  resolve_timeout: 5m
+
+route:
+  receiver: default
+  group_by: ["alertname", "severity"]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  routes:
+    - matchers: ['severity="critical"']
+      receiver: pager
+      repeat_interval: 1h
+
+receivers:
+  - name: default
+    webhook_configs:
+      - url: "http://localhost:5001/alerts"   # replace with your sink
+  - name: pager
+    webhook_configs:
+      - url: "http://localhost:5001/pager"     # replace with PagerDuty/Slack

@@ -1,0 +1,50 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+env/
+
+# ---- Secrets / env (keep .env.example) ----
+.env
+.env.*
+!.env.example
+
+# ---- Node / Next.js ----
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+next-env.d.ts
+
+# ---- Logs / build artifacts ----
+*.log
+docker/*.log
+build*.log
+
+# ---- Local-only Docker override (machine-specific ports/backend) ----
+docker/docker-compose.override.yml
+docker/docker-compose.gpu.yml
+
+# ---- Databases / local data ----
+*.db
+*.sqlite
+*.sqlite3
+
+# ---- Model weights (never commit; mounted/downloaded at runtime) ----
+models/
+*.pth
+*.ckpt
+*.safetensors
+*.bin
+*.onnx
+
+# ---- OS / editor ----
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

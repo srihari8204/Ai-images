@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker
+  namespace: ai-mirror
+  labels: { app: worker }
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: worker }
+  template:
+    metadata:
+      labels: { app: worker }
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9100"
+    spec:
+      containers:
+        - name: worker
+          image: ghcr.io/aimirror/worker:latest
+          command: ["python", "-m", "ai_engine.worker"]
+          ports:
+            - containerPort: 9100
+          envFrom:
+            - configMapRef: { name: ai-mirror-config }
+            - secretRef: { name: ai-mirror-secrets }
+          resources:
+            requests: { cpu: "1", memory: "4Gi" }
+            # GPU scheduling for real inference:
+            limits:
+              # nvidia.com/gpu: 1
+              cpu: "4"
+              memory: "16Gi"
+      # nodeSelector: { cloud.google.com/gke-accelerator: nvidia-tesla-t4 }

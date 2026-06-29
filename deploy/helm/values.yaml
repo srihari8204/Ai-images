@@ -1,0 +1,49 @@
+image:
+  registry: ghcr.io/aimirror
+  tag: latest
+  pullPolicy: IfNotPresent
+
+api:
+  replicas: 3
+  resources:
+    requests: { cpu: 250m, memory: 512Mi }
+    limits: { cpu: "1", memory: 1Gi }
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 20
+    targetCPUUtilizationPercentage: 70
+
+worker:
+  replicas: 2
+  gpu: false
+  resources:
+    requests: { cpu: "1", memory: 4Gi }
+    limits: { cpu: "4", memory: 16Gi }
+  keda:
+    enabled: true
+    minReplicaCount: 1
+    maxReplicaCount: 30
+    queues:
+      - { name: "rq:queue:generation-high", length: "5" }
+      - { name: "rq:queue:generation", length: "10" }
+
+config:
+  environment: prod
+  publicBaseUrl: https://app.aimirror.example
+  frontendBaseUrl: https://app.aimirror.example
+  s3PublicEndpoint: https://cdn.aimirror.example
+
+secrets:
+  # Provide via --set or an external-secrets operator. Never commit real values.
+  secretKey: ""
+  databaseUrl: ""
+  s3AccessKey: ""
+  s3SecretKey: ""
+  stripeSecretKey: ""
+  stripeWebhookSecret: ""
+
+ingress:
+  enabled: true
+  host: app.aimirror.example
+  tlsSecret: ai-mirror-tls

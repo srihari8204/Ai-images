@@ -1,0 +1,33 @@
+# Prometheus Operator resources: scrape API + worker, load alert rules.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: ai-mirror-api
+  namespace: ai-mirror
+spec:
+  selector:
+    matchLabels: { app: api }
+  endpoints:
+    - port: "8000"
+      path: /metrics
+      interval: 15s
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: ai-mirror-alerts
+  namespace: ai-mirror
+spec:
+  groups:
+    - name: ai-mirror
+      rules:
+        - alert: HighErrorRate
+          expr: sum(rate(http_errors_total[5m])) / clamp_min(sum(rate(http_requests_total[5m])),1) > 0.05
+          for: 5m
+          labels: { severity: critical }
+          annotations: { summary: "API 5xx rate > 5%" }
+        - alert: QueueBacklog
+          expr: sum(queue_depth) > 200
+          for: 10m
+          labels: { severity: warning }
+          annotations: { summary: "Generation queue backlog high" }

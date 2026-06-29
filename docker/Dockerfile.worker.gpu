@@ -1,0 +1,44 @@
+# Production GPU worker image. Real FLUX/InstantID/ControlNet/GFPGAN/RealESRGAN/rembg.
+# Build:  docker build -f docker/Dockerfile.worker.gpu -t aimirror/worker:gpu .
+# Run on a CUDA host (nvidia-container-toolkit) with --gpus all.
+FROM nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PYTHONPATH=/app/backend:/app/ai-engine \
+    HF_HOME=/models/hf \
+    TORCH_DEVICE=cuda \
+    GENERATION_BACKEND=flux
+
+WORKDIR /app/ai-engine
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        python3.11 python3-pip git libgl1 libglib2.0-0 libpq-dev build-essential \
+    && ln -sf /usr/bin/python3.11 /usr/bin/python \
+    && rm -rf /var/lib/apt/lists/*
+
+# Shared backend deps.
+COPY backend/requirements.txt /app/backend/requirements.txt
+RUN pip install -r /app/backend/requirements.txt
+
+# CUDA build of PyTorch (match the base image CUDA: cu124).
+RUN pip install --index-url https://download.pytorch.org/whl/cu124 \
+        torch==2.5.1 torchvision==0.20.1
+
+# GPU model stack.
+COPY ai-engine/requirements-gpu.txt /app/ai-engine/requirements-gpu.txt
+RUN pip install -r /app/ai-engine/requirements-gpu.txt
+
+# InstantID custom pipeline (ships only in the repo, not on PyPI). Added to PYTHONPATH.
+RUN git clone --depth 1 https://github.com/InstantID/InstantID /opt/InstantID || true
+ENV PYTHONPATH=/app/backend:/app/ai-engine:/opt/InstantID
+
+COPY backend/ /app/backend/
+COPY ai-engine/ /app/ai-engine/
+
+# Weights are NOT baked in — mount them at /models (HF cache + insightface) so the
+# image stays small and weights are shared/cached across pods.
+VOLUME ["/models"]
+
+CMD ["python", "-m", "ai_engine.worker"]
