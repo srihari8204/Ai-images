@@ -8,6 +8,11 @@
 #   $INSIGHTFACE_ROOT/models/antelopev2/
 set -euo pipefail
 
+# RunPod sets HF_HUB_ENABLE_HF_TRANSFER=1 by default but the package isn't
+# installed, which breaks downloads — force it off.
+export HF_HUB_ENABLE_HF_TRANSFER=0
+export HF_HUB_DISABLE_XET=1
+
 DEST="${INSIGHTFACE_ROOT:-/workspace/insightface}/models/antelopev2"
 mkdir -p "$DEST"
 echo ">>> downloading antelopev2 into $DEST"
