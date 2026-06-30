@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+# RunPod GPU worker — InstantID (AI-Mirror-style face personalization on SDXL).
+#
+# Turns an uploaded selfie into stylized portraits that preserve the person's
+# identity. Needs a GPU with >=16 GB VRAM (L4 24 GB is fine). All models and
+# caches go to /workspace (the persistent network volume), NOT the 30 GB
+# container disk.
+#
+# Usage (inside a tmux session):
+#   tmux new -s worker
+#   export REDIS_URL='rediss://...'
+#   export DATABASE_URL='postgresql://...'
+#   export S3_ACCESS_KEY='...'
+#   export S3_SECRET_KEY='...'
+#   export SECRET_KEY='...'
+#   bash deploy/runpod/start-worker-instantid.sh
+#
+# Leave it running: Ctrl+B then D to DETACH. Never Ctrl+C.
+# First run downloads SDXL + InstantID + antelopev2 (~10 GB) — be patient.
+set -euo pipefail
+
+REPO=/workspace/Ai-images
+cd "$REPO"
+
+# ---- required secrets ----
+: "${REDIS_URL:?set REDIS_URL before running}"
+: "${DATABASE_URL:?set DATABASE_URL before running}"
+: "${S3_ACCESS_KEY:?set S3_ACCESS_KEY before running}"
+: "${S3_SECRET_KEY:?set S3_SECRET_KEY before running}"
+: "${SECRET_KEY:?set SECRET_KEY before running}"
+
+# ---- InstantID backend config (everything cached on /workspace) ----
+export GENERATION_BACKEND=instantid
+export TORCH_DEVICE=cuda
+export S3_REGION=auto
+export HF_HOME=/workspace/hf
+export HF_HUB_DISABLE_XET=1
+export HF_HUB_ENABLE_HF_TRANSFER=0
+export INSIGHTFACE_ROOT=/workspace/insightface
+export INSTANTID_BASE_MODEL="${INSTANTID_BASE_MODEL:-stabilityai/stable-diffusion-xl-base-1.0}"
+export INSTANTID_REPO=InstantX/InstantID
+export S3_ENDPOINT_URL=https://7fd1208c57579b53f47307ade895aa3c.r2.cloudflarestorage.com
+export S3_PUBLIC_ENDPOINT_URL=https://7fd1208c57579b53f47307ade895aa3c.r2.cloudflarestorage.com
+
+# ---- InstantID custom pipeline code (pipeline file + ip_adapter/ package) ----
+# Cloned once into /workspace and added to PYTHONPATH so the worker can import
+# `pipeline_stable_diffusion_xl_instantid` and its ip_adapter helpers.
+INSTANTID_SRC=/workspace/InstantID
+if [ ! -f "$INSTANTID_SRC/pipeline_stable_diffusion_xl_instantid.py" ]; then
+  echo ">>> cloning InstantID source"
+  rm -rf "$INSTANTID_SRC"
+  git clone --depth 1 https://github.com/instantX-research/InstantID "$INSTANTID_SRC"
+fi
+export PYTHONPATH="$REPO/backend:$REPO/ai-engine:$INSTANTID_SRC"
+
+# ---- python deps ----
+git pull -q || true
+pip install -r backend/requirements.txt --ignore-installed -q
+pip install diffusers==0.32.1 transformers==4.48.0 accelerate safetensors sentencepiece protobuf -q
+pip install insightface==0.7.3 onnxruntime-gpu opencv-python-headless -q
+
+echo ">>> InstantID worker starting (first run downloads ~10 GB to /workspace; detach with Ctrl+B then D)"
+exec python -m ai_engine.worker
