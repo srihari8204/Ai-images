@@ -142,8 +142,11 @@ def delete_object(bucket: str, key: str) -> None:
 
 
 def health_check() -> bool:
+    # Use a bucket-scoped op (list one object) rather than ListBuckets, which is
+    # an account-level call that object-scoped tokens (e.g. Cloudflare R2 "Object
+    # Read & Write") are not permitted to make.
     try:
-        _internal_client().list_buckets()
+        _internal_client().list_objects_v2(Bucket=settings.bucket_uploads, MaxKeys=1)
         return True
     except Exception:  # noqa: BLE001
         return False
