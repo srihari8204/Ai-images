@@ -37,7 +37,9 @@ export HF_HOME=/workspace/hf
 export HF_HUB_DISABLE_XET=1
 export HF_HUB_ENABLE_HF_TRANSFER=0
 export INSIGHTFACE_ROOT=/workspace/insightface
-export INSTANTID_BASE_MODEL="${INSTANTID_BASE_MODEL:-stabilityai/stable-diffusion-xl-base-1.0}"
+# RealVisXL V5.0 = photoreal SDXL checkpoint (far better faces than SDXL base).
+# Override with e.g. RunDiffusion/Juggernaut-XL-v9 for a more cinematic look.
+export INSTANTID_BASE_MODEL="${INSTANTID_BASE_MODEL:-SG161222/RealVisXL_V5.0}"
 export INSTANTID_REPO=InstantX/InstantID
 export S3_ENDPOINT_URL=https://7fd1208c57579b53f47307ade895aa3c.r2.cloudflarestorage.com
 export S3_PUBLIC_ENDPOINT_URL=https://7fd1208c57579b53f47307ade895aa3c.r2.cloudflarestorage.com
@@ -64,6 +66,16 @@ pip install insightface==0.7.3 opencv-python-headless -q
 # heavy SDXL diffusion still runs on the GPU via torch.
 pip uninstall -y onnxruntime-gpu >/dev/null 2>&1 || true
 pip install "onnxruntime>=1.17" -q
+
+# ---- optional enhancers: face restore (GFPGAN), upscale (RealESRGAN), bg removal (rembg) ----
+# Weights auto-download from URLs on first use. basicsr imports a torchvision
+# module removed in tv>=0.17, so we patch it in place after install.
+pip install gfpgan realesrgan rembg -q || true
+BASICSR_DEG=$(python -c "import basicsr.data.degradations as m; print(m.__file__)" 2>/dev/null || true)
+if [ -n "$BASICSR_DEG" ]; then
+  sed -i 's/functional_tensor/functional/g' "$BASICSR_DEG" || true
+  echo ">>> patched basicsr for modern torchvision"
+fi
 
 echo ">>> InstantID worker starting (first run downloads ~10 GB to /workspace; detach with Ctrl+B then D)"
 exec python -m ai_engine.worker
