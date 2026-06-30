@@ -36,7 +36,8 @@ docker/docker-compose.gpu.yml
 *.sqlite3
 
 # ---- Model weights (never commit; mounted/downloaded at runtime) ----
-models/
+# Anchored to repo root so it does NOT ignore the source pkg ai_engine/models/.
+/models/
 *.pth
 *.ckpt
 *.safetensors
