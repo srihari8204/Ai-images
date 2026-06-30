@@ -57,7 +57,13 @@ export PYTHONPATH="$REPO/backend:$REPO/ai-engine:$INSTANTID_SRC"
 git pull -q || true
 pip install -r backend/requirements.txt --ignore-installed -q
 pip install diffusers==0.32.1 transformers==4.48.0 accelerate safetensors sentencepiece protobuf -q
-pip install insightface==0.7.3 onnxruntime-gpu opencv-python-headless -q
+pip install insightface==0.7.3 opencv-python-headless -q
+# insightface needs onnxruntime importable. onnxruntime-gpu frequently fails to
+# load on RunPod (cuDNN/CUDA version mismatch) which makes InstantID silently
+# unavailable. CPU onnxruntime always imports and face detection is light; the
+# heavy SDXL diffusion still runs on the GPU via torch.
+pip uninstall -y onnxruntime-gpu >/dev/null 2>&1 || true
+pip install "onnxruntime>=1.17" -q
 
 echo ">>> InstantID worker starting (first run downloads ~10 GB to /workspace; detach with Ctrl+B then D)"
 exec python -m ai_engine.worker
