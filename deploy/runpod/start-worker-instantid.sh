@@ -71,10 +71,13 @@ pip install "onnxruntime>=1.17" -q
 # Weights auto-download from URLs on first use. basicsr imports a torchvision
 # module removed in tv>=0.17, so we patch it in place after install.
 pip install gfpgan realesrgan rembg -q || true
-BASICSR_DEG=$(python -c "import basicsr.data.degradations as m; print(m.__file__)" 2>/dev/null || true)
-if [ -n "$BASICSR_DEG" ]; then
-  sed -i 's/functional_tensor/functional/g' "$BASICSR_DEG" || true
-  echo ">>> patched basicsr for modern torchvision"
+# basicsr's degradations.py imports torchvision.transforms.functional_tensor,
+# removed in tv>=0.17. Locate the file WITHOUT importing it (the import itself is
+# what fails), then rewrite the import in place.
+BASICSR_DEG=$(python -c "import importlib.util, os; d=importlib.util.find_spec('basicsr').submodule_search_locations[0]; print(os.path.join(d,'data','degradations.py'))" 2>/dev/null || true)
+if [ -n "$BASICSR_DEG" ] && [ -f "$BASICSR_DEG" ]; then
+  sed -i 's/torchvision\.transforms\.functional_tensor/torchvision.transforms.functional/g' "$BASICSR_DEG" || true
+  echo ">>> patched basicsr for modern torchvision: $BASICSR_DEG"
 fi
 
 echo ">>> InstantID worker starting (first run downloads ~10 GB to /workspace; detach with Ctrl+B then D)"
