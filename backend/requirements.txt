@@ -20,8 +20,11 @@ redis==5.2.1
 rq==2.0.0
 
 # ---- Object storage ----
-boto3==1.35.92
-botocore==1.35.92
+# 1.35.x has a botocore S3 region-redirect bug that recurses infinitely against
+# Cloudflare R2 (head_bucket -> redirect -> head_bucket). 1.42.x fixes it and is
+# verified working against R2 (put/get/list/lifecycle).
+boto3==1.42.62
+botocore==1.42.97
 
 # ---- Security / auth ----
 argon2-cffi==23.1.0
