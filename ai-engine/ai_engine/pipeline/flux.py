@@ -93,15 +93,35 @@ def _run_instantid(ctx: StageContext, seed: int, w: int, h: int, steps: int, gui
         raise StageError("instantid", "no_face_detected", "No face found in reference")
     face = sorted(faces, key=lambda f: (f.bbox[2] - f.bbox[0]) * (f.bbox[3] - f.bbox[1]))[-1]
     kps = draw_kps(ref, face.kps)
+
+    # Anchor the subject to the DETECTED gender/age so identity is preserved even
+    # with a minimal prompt. InstantID follows the text prompt for semantics, so
+    # a bare "cinematic" prompt otherwise drifts to a generic (often female)
+    # subject. insightface's genderage model gives face.sex ("M"/"F")/face.age.
+    sex = getattr(face, "sex", None)
+    subject = "man" if sex == "M" else "woman" if sex == "F" else "person"
+    age = getattr(face, "age", None)
+    who = f"a {int(age)} year old {subject}" if isinstance(age, (int, float)) else f"a {subject}"
+    style_prompt = ctx.prompt or "portrait"
+    prompt = f"{who}, {style_prompt}, portrait, highly detailed face, sharp focus"
+    negative = ctx.negative_prompt or (
+        "lowres, worst quality, low quality, blurry, deformed, disfigured, "
+        "extra limbs, extra fingers, mutated hands, bad anatomy, wrong gender, "
+        "watermark, text, cropped"
+    )
+    # SDXL/InstantID follows prompts poorly below ~5; the pipeline's global 3.5
+    # default (FLUX-oriented) causes drift, so enforce a sensible minimum.
+    cfg = guidance if guidance and guidance >= 4.0 else 5.0
+
     ctx.image = pipe(
-        prompt=ctx.prompt,
-        negative_prompt=ctx.negative_prompt or None,
+        prompt=prompt,
+        negative_prompt=negative,
         image_embeds=torch.from_numpy(face.normed_embedding).unsqueeze(0),
         image=kps,
-        controlnet_conditioning_scale=0.8,
-        ip_adapter_scale=0.8,
-        num_inference_steps=min(steps, 40),
-        guidance_scale=guidance,
+        controlnet_conditioning_scale=0.85,
+        ip_adapter_scale=0.9,
+        num_inference_steps=min(max(steps, 30), 40),
+        guidance_scale=cfg,
         height=h,
         width=w,
         generator=torch.Generator(device=settings.torch_device).manual_seed(seed),
