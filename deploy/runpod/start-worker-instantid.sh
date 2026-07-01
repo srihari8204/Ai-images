@@ -37,9 +37,10 @@ export HF_HOME=/workspace/hf
 export HF_HUB_DISABLE_XET=1
 export HF_HUB_ENABLE_HF_TRANSFER=0
 export INSIGHTFACE_ROOT=/workspace/insightface
-# RealVisXL V5.0 = photoreal SDXL checkpoint (far better faces than SDXL base).
-# Override with e.g. RunDiffusion/Juggernaut-XL-v9 for a more cinematic look.
-export INSTANTID_BASE_MODEL="${INSTANTID_BASE_MODEL:-SG161222/RealVisXL_V5.0}"
+# YamerMIX_v8 is the base model from the official InstantID demo — it preserves
+# the input identity far better than "beautify" checkpoints like RealVisXL
+# (which tend to westernize/age faces). This is the key to faithful likeness.
+export INSTANTID_BASE_MODEL="${INSTANTID_BASE_MODEL:-wangqixun/YamerMIX_v8}"
 export INSTANTID_REPO=InstantX/InstantID
 export S3_ENDPOINT_URL=https://7fd1208c57579b53f47307ade895aa3c.r2.cloudflarestorage.com
 export S3_PUBLIC_ENDPOINT_URL=https://7fd1208c57579b53f47307ade895aa3c.r2.cloudflarestorage.com

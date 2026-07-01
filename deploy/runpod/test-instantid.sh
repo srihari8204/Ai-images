@@ -16,7 +16,7 @@ export HF_HOME=/workspace/hf
 export HF_HUB_DISABLE_XET=1
 export HF_HUB_ENABLE_HF_TRANSFER=0
 export INSIGHTFACE_ROOT=/workspace/insightface
-export INSTANTID_BASE_MODEL="${INSTANTID_BASE_MODEL:-SG161222/RealVisXL_V5.0}"
+export INSTANTID_BASE_MODEL="${INSTANTID_BASE_MODEL:-wangqixun/YamerMIX_v8}"
 export INSTANTID_REPO=InstantX/InstantID
 export PYTHONPATH="$REPO/backend:$REPO/ai-engine:/workspace/InstantID"
 

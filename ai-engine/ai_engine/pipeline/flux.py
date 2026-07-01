@@ -134,11 +134,11 @@ def _run_instantid(ctx: StageContext, seed: int, w: int, h: int, steps: int, gui
         negative_prompt=negative,
         image_embeds=torch.from_numpy(face.normed_embedding).unsqueeze(0),
         image=kps,
-        # Max identity: keypoints define face geometry (0.8) and the IP-adapter
-        # carries the person's actual likeness at full strength (1.0) so the base
-        # model's older/fairer bias doesn't override who they are.
+        # Official InstantID demo balance (with the YamerMIX base): keypoints for
+        # face geometry (0.8) and IP-adapter identity (0.8). This pairing tracks
+        # the input face faithfully; pushing the adapter to 1.0 distorts.
         controlnet_conditioning_scale=0.8,
-        ip_adapter_scale=1.0,
+        ip_adapter_scale=0.8,
         num_inference_steps=min(max(steps, 30), 40),
         guidance_scale=cfg,
         height=h,
