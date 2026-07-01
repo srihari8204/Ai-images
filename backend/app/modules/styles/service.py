@@ -73,16 +73,10 @@ def _user_plan_slugs(user) -> set[str]:
 
 
 async def resolve_style(db: AsyncSession, style_id: uuid.UUID, user) -> dict:
-    """Resolve a style id into concrete generation parameters, enforcing the
-    plan gate. Returns the style's template/negative/params/cost_multiplier."""
+    """Resolve a style id into concrete generation parameters. Plan gating is
+    disabled (no paid plans in this deployment): every style is free."""
 
     style = await get_active_or_400(db, style_id)
-    if style.plan_gate and style.plan_gate not in _user_plan_slugs(user):
-        raise ForbiddenError(
-            "This style requires a higher plan",
-            code="style_not_entitled",
-            details={"required_plan": style.plan_gate},
-        )
     return {
         "style_id": str(style.id),
         "template": style.template,

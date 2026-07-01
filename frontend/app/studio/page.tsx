@@ -158,7 +158,7 @@ export default function StudioPage() {
           <option value="">None</option>
           {styles.map((s) => (
             <option key={s.id} value={s.slug}>
-              {s.name} {s.plan_gate ? `(${s.plan_gate})` : ""} ×{s.cost_multiplier}
+              {s.name}
             </option>
           ))}
         </select>
