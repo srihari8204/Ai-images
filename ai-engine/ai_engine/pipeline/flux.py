@@ -109,13 +109,14 @@ def _run_instantid(ctx: StageContext, seed: int, w: int, h: int, steps: int, gui
     # Anchor the subject to the DETECTED gender/age so identity is preserved even
     # with a minimal prompt, and force clean head-and-shoulders framing so the
     # result is a proper portrait (not a cropped macro of the nose).
+    # Only anchor gender (age/ethnicity come from the face embedding — forcing a
+    # detected age biased results older). Keep the prompt light so the identity
+    # embedding, not the base model's stock-photo bias, drives the face.
     sex = getattr(face, "sex", None)
     subject = "man" if sex == "M" else "woman" if sex == "F" else "person"
-    age = getattr(face, "age", None)
-    who = f"a {int(age)} year old {subject}" if isinstance(age, (int, float)) else f"a {subject}"
     style_prompt = ctx.prompt or "portrait"
     prompt = (
-        f"{who}, {style_prompt}, head and shoulders portrait, centered composition, "
+        f"a {subject}, {style_prompt}, head and shoulders portrait, centered composition, "
         "looking at camera, natural pose, high quality, sharp focus"
     )
     negative = ctx.negative_prompt or (
@@ -133,10 +134,11 @@ def _run_instantid(ctx: StageContext, seed: int, w: int, h: int, steps: int, gui
         negative_prompt=negative,
         image_embeds=torch.from_numpy(face.normed_embedding).unsqueeze(0),
         image=kps,
-        # Lower keypoint control so framing follows the prompt (head & shoulders)
-        # rather than rigidly copying the selfie's tight crop; keep identity high.
-        controlnet_conditioning_scale=0.7,
-        ip_adapter_scale=0.85,
+        # Max identity: keypoints define face geometry (0.8) and the IP-adapter
+        # carries the person's actual likeness at full strength (1.0) so the base
+        # model's older/fairer bias doesn't override who they are.
+        controlnet_conditioning_scale=0.8,
+        ip_adapter_scale=1.0,
         num_inference_steps=min(max(steps, 30), 40),
         guidance_scale=cfg,
         height=h,
