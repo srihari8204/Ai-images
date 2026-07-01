@@ -97,6 +97,10 @@ class Settings(BaseSettings):
     rate_limit_auth_per_ip: int = 20
     rate_limit_auth_per_account: int = 10
     rate_limit_window_seconds: int = 300
+    # Generation abuse protection: images per IP per window (the app is open /
+    # login-free, so this caps GPU spend from a single visitor).
+    rate_limit_generation_per_ip: int = 60
+    rate_limit_generation_window_seconds: int = 3600
 
     # ---- Generation backend ----
     # "auto"    -> try FLUX.1 on GPU, else deterministic CPU stand-in

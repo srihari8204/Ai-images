@@ -11,8 +11,8 @@ from app.core.config import settings
 from app.core.redis import get_redis
 
 
-async def hit(key: str, *, limit: int, window: int) -> tuple[bool, int]:
-    """Register one hit against ``key``.
+async def hit(key: str, *, limit: int, window: int, amount: int = 1) -> tuple[bool, int]:
+    """Register ``amount`` hits against ``key``.
 
     Returns ``(allowed, retry_after_seconds)``.
     """
@@ -20,15 +20,35 @@ async def hit(key: str, *, limit: int, window: int) -> tuple[bool, int]:
     redis = get_redis()
     redis_key = f"rl:{key}"
     pipe = redis.pipeline()
-    pipe.incr(redis_key)
+    pipe.incrby(redis_key, amount)
     pipe.ttl(redis_key)
     count, ttl = await pipe.execute()
-    if count == 1 or ttl < 0:
+    if count == amount or ttl < 0:
         await redis.expire(redis_key, window)
         ttl = window
     if count > limit:
         return False, max(ttl, 1)
     return True, 0
+
+
+async def enforce_generation_limit(ip: str | None, *, units: int = 1) -> None:
+    """Throttle image generation per IP (protects the GPU on the open app)."""
+
+    if not ip:
+        return
+    from app.core.errors import RateLimitError
+
+    allowed, retry = await hit(
+        f"gen:ip:{ip}",
+        limit=settings.rate_limit_generation_per_ip,
+        window=settings.rate_limit_generation_window_seconds,
+        amount=max(units, 1),
+    )
+    if not allowed:
+        raise RateLimitError(
+            "You're generating too fast — please wait a bit and try again.",
+            headers={"Retry-After": str(retry)},
+        )
 
 
 async def enforce_auth_limit(ip: str | None, account: str | None) -> None:

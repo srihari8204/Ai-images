@@ -10,8 +10,9 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Query, Request, status
 from sse_starlette.sse import EventSourceResponse
 
-from app.core.dependencies import CurrentUser, DbSession, get_idempotency_key
+from app.core.dependencies import CurrentUser, DbSession, get_client_ip, get_idempotency_key
 from app.core.pagination import decode_cursor, encode_cursor
+from app.core.rate_limit import enforce_generation_limit
 from app.core.redis import get_redis
 from app.modules.pipeline import service
 from app.modules.pipeline.models import JobStatus
@@ -49,6 +50,7 @@ async def submit_job(
     db: DbSession,
     idempotency_key: Annotated[str | None, Depends(get_idempotency_key)] = None,
 ) -> JobAccepted:
+    await enforce_generation_limit(get_client_ip(request), units=req.params.num_outputs)
     job = await service.submit_job(
         db,
         user,
@@ -79,6 +81,10 @@ async def submit_pack(
     db: DbSession,
     idempotency_key: Annotated[str | None, Depends(get_idempotency_key)] = None,
 ) -> PackResponse:
+    await enforce_generation_limit(
+        get_client_ip(request),
+        units=len(req.style_slugs) * req.variants_per_style,
+    )
     pack_id, items = await service.submit_pack(
         db,
         user,
