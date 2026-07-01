@@ -139,6 +139,62 @@ STYLES = [
     _style("anime_film", "Anime Film", "illustration",
            "cinematic anime film key visual of {prompt}, studio quality, detailed background",
            _NEG_ART, mult=2.0, gate="studio", steps=34, guidance=5.5),
+
+    # --- AI-Mirror-style themed packs (free for everyone) ---
+    _style("pocket_pals", "Pocket Pals", "pack",
+           "adorable portrait of {prompt} with a cute pocket-sized fantasy creature companion, "
+           "chibi, big sparkling eyes, vibrant, soft studio light", _NEG_ART, steps=30, guidance=5.0),
+    _style("anime_aesthetic", "Anime Aesthetic", "pack",
+           "dreamy anime aesthetic portrait of {prompt}, soft pastel palette, detailed eyes, "
+           "delicate lighting, trending anime art", _NEG_ART, steps=30, guidance=5.0),
+    _style("y2k", "Y2K", "pack",
+           "Y2K early-2000s aesthetic portrait of {prompt}, glossy metallic, butterfly clips, "
+           "holographic, retro digital flash photo", _NEG_PHOTO, steps=30, guidance=5.0),
+    _style("funpack", "Fun Pack", "pack",
+           "playful colorful sticker-style portrait of {prompt}, party vibes, confetti, "
+           "bright bold colors", _NEG_ART, steps=30, guidance=5.0),
+    _style("birthday_glow", "Birthday Glow", "pack",
+           "joyful birthday portrait of {prompt}, balloons, confetti, warm golden glow, "
+           "festive bokeh", _NEG_PHOTO, steps=30, guidance=5.0),
+    _style("giant_animal", "Giant Animal", "pack",
+           "whimsical portrait of {prompt} beside a giant friendly animal, epic scale, "
+           "cinematic wide shot, magical atmosphere", _NEG_PHOTO, steps=32, guidance=5.0),
+    _style("reunited", "Reunited", "pack",
+           "heartwarming emotional reunion portrait of {prompt}, soft golden-hour light, "
+           "cinematic film look, tender mood", _NEG_PHOTO, steps=32, guidance=5.0),
+    _style("high_fashion", "High Fashion", "pack",
+           "high fashion editorial portrait of {prompt}, couture wardrobe, dramatic studio lighting, "
+           "vogue magazine, ultra detailed", "amateur, snapshot, lowres, deformed", steps=32, guidance=5.0),
+    _style("noir_mood", "Noir Mood", "pack",
+           "moody film-noir portrait of {prompt}, black and white, venetian-blind shadows, "
+           "cigarette smoke, dramatic contrast", _NEG_PHOTO, steps=30, guidance=5.0),
+    _style("best_companion", "Best Companion", "pack",
+           "cozy portrait of {prompt} with a loyal pet companion, warm natural light, "
+           "heartwarming", _NEG_PHOTO, steps=30, guidance=5.0),
+    _style("mvp", "MVP", "pack",
+           "sports MVP hero portrait of {prompt}, stadium floodlights, confetti, trophy, "
+           "dynamic athletic, cinematic", _NEG_PHOTO, steps=30, guidance=5.0),
+    _style("cheerup", "Cheer Up", "pack",
+           "cheerful uplifting portrait of {prompt}, bright sunny light, warm colors, "
+           "joyful smile, feel-good mood", _NEG_PHOTO, steps=30, guidance=5.0),
+    _style("lets_go", "Let's Go", "pack",
+           "energetic adventure travel portrait of {prompt}, dynamic outdoor scene, golden light, "
+           "wanderlust, cinematic", _NEG_PHOTO, steps=30, guidance=5.0),
+    _style("sketchbook", "Sketchbook", "pack",
+           "hand-drawn sketchbook portrait of {prompt}, pencil and ink, doodles, artistic linework, "
+           "paper texture", _NEG_ART, steps=30, guidance=5.0),
+    _style("poster_maker", "Poster Maker", "pack",
+           "bold graphic poster of {prompt}, striking typography, high contrast, modern design, "
+           "vibrant", _NEG_ART, steps=30, guidance=5.0),
+    _style("painting", "Painting", "pack",
+           "fine-art painted portrait of {prompt}, rich oil textures, expressive brush strokes, "
+           "gallery quality", _NEG_ART, steps=32, guidance=5.0),
+    _style("chibi_figure", "Chibi Figure", "pack",
+           "cute chibi collectible figurine of {prompt}, 3d render, big head small body, glossy, "
+           "studio product shot", _NEG_ART, steps=30, guidance=5.0),
+    _style("gamer", "Gamer", "pack",
+           "epic gamer avatar portrait of {prompt}, neon RGB lighting, futuristic esports, "
+           "dramatic, high detail", _NEG_PHOTO, steps=30, guidance=5.0),
 ]
 
 FLAGS = [

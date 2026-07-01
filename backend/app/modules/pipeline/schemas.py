@@ -75,10 +75,10 @@ class JobPage(BaseModel):
 class PackRequest(BaseModel):
     """Avatar pack: generate across multiple styles (and variants) in one request."""
 
-    prompt: str = Field(max_length=4000)
+    prompt: str = Field(default="", max_length=4000)
     negative_prompt: str | None = Field(default=None, max_length=4000)
     style_slugs: list[str] = Field(min_length=1, max_length=20)
-    variants_per_style: int = Field(default=1, ge=1, le=4)
+    variants_per_style: int = Field(default=1, ge=1, le=10)
     stages: list[str] = Field(default_factory=lambda: ["generate"])
     reference_image_ids: list[uuid.UUID] = Field(default_factory=list)
     params: JobParams = Field(default_factory=JobParams)

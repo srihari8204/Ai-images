@@ -22,6 +22,8 @@ export default function StudioPage() {
   const [job, setJob] = useState<Job | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [photos, setPhotos] = useState(1);
+  const [batchMsg, setBatchMsg] = useState<string | null>(null);
   const esRef = useRef<EventSource | null>(null);
 
   useEffect(() => {
@@ -81,8 +83,27 @@ export default function StudioPage() {
 
   const submit = async () => {
     setError(null);
+    setBatchMsg(null);
     setBusy(true);
     try {
+      // Batch mode: generate N photos of the chosen filter (one job each) via
+      // the pack endpoint. Results stream into the Gallery.
+      if (photos > 1) {
+        await api("/api/v1/jobs/pack", {
+          method: "POST",
+          body: {
+            prompt,
+            style_slugs: [styleSlug],
+            variants_per_style: photos,
+            stages: ["generate", ...stages],
+            reference_image_ids: referenceId ? [referenceId] : [],
+          },
+          idempotencyKey: crypto.randomUUID(),
+        });
+        setBatchMsg(`${photos} photos are generating — they'll appear in your Gallery shortly.`);
+        api<Balance>("/api/v1/credits/balance").then(setBalance).catch(() => {});
+        return;
+      }
       const body = {
         prompt,
         style_slug: styleSlug || null,
@@ -142,6 +163,13 @@ export default function StudioPage() {
           ))}
         </select>
 
+        <label>Photos</label>
+        <select value={photos} onChange={(e) => setPhotos(Number(e.target.value))}>
+          {[1, 2, 4, 6, 8, 10].map((n) => (
+            <option key={n} value={n}>{n} photo{n > 1 ? "s" : ""}</option>
+          ))}
+        </select>
+
         <label>Post-processing</label>
         <div className="grid cols-3">
           {POST_STAGES.map((st) => (
@@ -173,7 +201,14 @@ export default function StudioPage() {
 
       <div className="card">
         <h3>Result</h3>
-        {!job && <p className="muted">Upload your photo, pick a style, and hit Generate.</p>}
+        {batchMsg && (
+          <div className="badge ok" style={{ display: "block", marginBottom: 12 }}>
+            {batchMsg} <a href="/gallery">Open gallery →</a>
+          </div>
+        )}
+        {!job && !batchMsg && (
+          <p className="muted">Upload your photo, pick a style, and hit Generate.</p>
+        )}
         {job && (
           <>
             <div className="row" style={{ justifyContent: "space-between" }}>
