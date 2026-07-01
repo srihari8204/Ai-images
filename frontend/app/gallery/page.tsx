@@ -28,6 +28,22 @@ export default function GalleryPage() {
 
   useEffect(() => {
     load();
+    // Live-refresh: poll the newest page every 5s and prepend any new images so
+    // a batch appears one by one without a manual refresh. Existing items (and
+    // your edits) are preserved.
+    const timer = setInterval(async () => {
+      try {
+        const page = await api<Page<GalleryItem>>("/api/v1/gallery");
+        setItems((prev) => {
+          const known = new Set(prev.map((x) => x.id));
+          const fresh = page.items.filter((it) => !known.has(it.id));
+          return fresh.length ? [...fresh, ...prev] : prev;
+        });
+      } catch {
+        /* ignore transient poll errors */
+      }
+    }, 5000);
+    return () => clearInterval(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -52,7 +68,10 @@ export default function GalleryPage() {
 
   return (
     <div>
-      <h2>Gallery</h2>
+      <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
+        <h2>Gallery</h2>
+        <span className="badge ok">● Live — new photos appear automatically</span>
+      </div>
       {error && <div className="error">{error}</div>}
       {!loading && items.length === 0 && <p className="muted">No images yet. Head to the studio.</p>}
       <div className="grid cols-4">
