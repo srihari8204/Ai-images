@@ -87,27 +87,42 @@ def _run_instantid(ctx: StageContext, seed: int, w: int, h: int, steps: int, gui
     import torch  # type: ignore
     from pipeline_stable_diffusion_xl_instantid import draw_kps  # type: ignore
 
+    from PIL import ImageOps  # type: ignore
+
     face_app, pipe = bundle["face_app"], bundle["pipe"]
-    faces = face_app.get(np.array(ref)[:, :, ::-1])  # BGR
+
+    # Fit the reference to the OUTPUT size (cover + center-crop) so the keypoint
+    # control image matches (w, h). Without this, a portrait selfie's keypoints
+    # get squished into a square canvas -> the extreme nose/mouth close-ups and
+    # distorted crops. Detecting the face on the fitted image keeps kps aligned.
+    ref_fit = ImageOps.fit(ref, (w, h))
+    faces = face_app.get(np.array(ref_fit)[:, :, ::-1])  # BGR
+    if not faces:
+        # Fall back to the raw reference if the crop lost the face.
+        ref_fit = ref
+        faces = face_app.get(np.array(ref_fit)[:, :, ::-1])
     if not faces:
         raise StageError("instantid", "no_face_detected", "No face found in reference")
     face = sorted(faces, key=lambda f: (f.bbox[2] - f.bbox[0]) * (f.bbox[3] - f.bbox[1]))[-1]
-    kps = draw_kps(ref, face.kps)
+    kps = draw_kps(ref_fit, face.kps)
 
     # Anchor the subject to the DETECTED gender/age so identity is preserved even
-    # with a minimal prompt. InstantID follows the text prompt for semantics, so
-    # a bare "cinematic" prompt otherwise drifts to a generic (often female)
-    # subject. insightface's genderage model gives face.sex ("M"/"F")/face.age.
+    # with a minimal prompt, and force clean head-and-shoulders framing so the
+    # result is a proper portrait (not a cropped macro of the nose).
     sex = getattr(face, "sex", None)
     subject = "man" if sex == "M" else "woman" if sex == "F" else "person"
     age = getattr(face, "age", None)
     who = f"a {int(age)} year old {subject}" if isinstance(age, (int, float)) else f"a {subject}"
     style_prompt = ctx.prompt or "portrait"
-    prompt = f"{who}, {style_prompt}, portrait, highly detailed face, sharp focus"
+    prompt = (
+        f"{who}, {style_prompt}, head and shoulders portrait, centered composition, "
+        "looking at camera, natural pose, high quality, sharp focus"
+    )
     negative = ctx.negative_prompt or (
+        "extreme close-up, cropped face, out of frame, zoomed in, macro, "
         "lowres, worst quality, low quality, blurry, deformed, disfigured, "
         "extra limbs, extra fingers, mutated hands, bad anatomy, wrong gender, "
-        "watermark, text, cropped"
+        "watermark, text"
     )
     # SDXL/InstantID follows prompts poorly below ~5; the pipeline's global 3.5
     # default (FLUX-oriented) causes drift, so enforce a sensible minimum.
@@ -118,8 +133,10 @@ def _run_instantid(ctx: StageContext, seed: int, w: int, h: int, steps: int, gui
         negative_prompt=negative,
         image_embeds=torch.from_numpy(face.normed_embedding).unsqueeze(0),
         image=kps,
-        controlnet_conditioning_scale=0.85,
-        ip_adapter_scale=0.9,
+        # Lower keypoint control so framing follows the prompt (head & shoulders)
+        # rather than rigidly copying the selfie's tight crop; keep identity high.
+        controlnet_conditioning_scale=0.7,
+        ip_adapter_scale=0.85,
         num_inference_steps=min(max(steps, 30), 40),
         guidance_scale=cfg,
         height=h,
