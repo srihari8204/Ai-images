@@ -69,6 +69,16 @@ async def login(req: LoginRequest, request: Request, db: DbSession) -> TokenPair
     return _token_pair(access, refresh)
 
 
+@router.post("/guest", response_model=TokenPair, summary="Start a guest session")
+async def guest(request: Request, db: DbSession) -> TokenPair:
+    access, refresh = await service.guest_session(
+        db,
+        user_agent=request.headers.get("user-agent"),
+        ip=get_client_ip(request),
+    )
+    return _token_pair(access, refresh)
+
+
 @router.post("/refresh", response_model=TokenPair, summary="Rotate tokens")
 async def refresh(req: RefreshRequest, request: Request, db: DbSession) -> TokenPair:
     access, new_refresh, _ = await service.refresh(

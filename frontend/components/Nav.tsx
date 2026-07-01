@@ -3,29 +3,19 @@
 import Link from "next/link";
 import { useAuth } from "@/lib/auth";
 
+// Login-free product: no auth or billing links. A guest session is opened
+// automatically (see lib/auth), so visitors can generate immediately.
 export default function Nav() {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   return (
     <nav className="nav">
       <Link href="/" className="brand">AI Mirror</Link>
       <Link href="/studio">Studio</Link>
       <Link href="/gallery">Gallery</Link>
-      <Link href="/billing">Billing</Link>
       {user?.roles?.some((r) => r === "admin" || r === "moderator") && (
         <Link href="/admin">Admin</Link>
       )}
       <span className="spacer" />
-      {user ? (
-        <>
-          <span className="muted">{user.display_name || user.email}</span>
-          <button onClick={() => logout()}>Log out</button>
-        </>
-      ) : (
-        <>
-          <Link href="/auth/login">Log in</Link>
-          <Link href="/auth/register" className="btn primary">Sign up</Link>
-        </>
-      )}
     </nav>
   );
 }

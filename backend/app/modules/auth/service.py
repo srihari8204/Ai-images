@@ -188,6 +188,44 @@ def _issue_access(user: User) -> str:
     return create_access_token(subject=str(user.id), roles=user.role_names)
 
 
+async def guest_session(
+    db: AsyncSession,
+    *,
+    user_agent: str | None = None,
+    ip: str | None = None,
+) -> tuple[str, str]:
+    """Create an anonymous account and return ``(access, refresh)``.
+
+    Powers login-free "guest mode": the SPA calls this on first load so a visitor
+    can generate immediately without signing up. Each guest is a real user row —
+    so credits, gallery, and jobs work unchanged — seeded with a generous credit
+    balance so generation is never blocked by billing.
+    """
+    from app.modules.credits import service as credits_service
+
+    user = User(
+        email=f"guest-{uuid.uuid4().hex}@guest.local",
+        password_hash=hash_password(generate_opaque_token(24)),
+        display_name="Guest",
+        status=UserStatus.ACTIVE,
+        email_verified_at=_now(),
+    )
+    user.roles.append(await _default_role(db))
+    db.add(user)
+    await db.flush()
+
+    await credits_service.grant(
+        db,
+        user.id,
+        settings.guest_credits,
+        reason="guest_grant",
+        idempotency_key=f"guest:{user.id}",
+    )
+    raw_refresh, _ = await _create_session(db, user, user_agent=user_agent, ip=ip)
+    logger.info("guest_session_created", user_id=str(user.id))
+    return _issue_access(user), raw_refresh
+
+
 async def login(
     db: AsyncSession, email: str, password: str, *, user_agent: str | None, ip: str | None
 ) -> tuple[str, str, User]:

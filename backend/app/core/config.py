@@ -103,6 +103,10 @@ class Settings(BaseSettings):
     # "sdturbo" -> real SD-Turbo diffusion on CPU (local testing, no GPU)
     # "flux"    -> require FLUX.1 (production GPU)
     generation_backend: str = "auto"
+
+    # Login-free "guest mode": the SPA opens a guest session automatically, so
+    # there is no login page. Each guest is seeded with this many credits.
+    guest_credits: int = 100000
     # CPU diffusion model for local testing. Defaults to SD-Turbo (few-step), but
     # any diffusers text2img checkpoint works — e.g. segmind/tiny-sd (~0.5GB) for
     # slow networks, with steps≈20 and guidance≈7.5.

@@ -22,10 +22,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const load = async () => {
+    // Login-free guest mode: if there's no session yet, transparently open a
+    // guest one so the visitor can generate immediately (no login page).
     if (!getAccess()) {
-      setUser(null);
-      setLoading(false);
-      return;
+      try {
+        const data = await api<{ access_token: string; refresh_token: string }>(
+          "/api/v1/auth/guest",
+          { method: "POST", auth: false }
+        );
+        setTokens(data.access_token, data.refresh_token);
+      } catch {
+        setUser(null);
+        setLoading(false);
+        return;
+      }
     }
     try {
       const me = await api<Profile>("/api/v1/me");

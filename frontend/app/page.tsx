@@ -9,8 +9,8 @@ export default function Home() {
         all through a fast, API-first platform.
       </p>
       <div className="row" style={{ justifyContent: "center", marginTop: 24 }}>
-        <Link href="/auth/register" className="btn primary">Get started</Link>
-        <Link href="/studio" className="btn">Open studio</Link>
+        <Link href="/studio" className="btn primary">Open studio</Link>
+        <Link href="/gallery" className="btn">View gallery</Link>
       </div>
       <div className="grid cols-3" style={{ marginTop: 48, textAlign: "left" }}>
         <div className="card">
@@ -22,8 +22,8 @@ export default function Home() {
           <p className="muted">InstantID keeps your identity across generations (with consent).</p>
         </div>
         <div className="card">
-          <h3>Credits & plans</h3>
-          <p className="muted">Pay-as-you-go credit packs or monthly subscriptions.</p>
+          <h3>Upscale & enhance</h3>
+          <p className="muted">GFPGAN face restore, RealESRGAN upscaling, background removal.</p>
         </div>
       </div>
     </div>
