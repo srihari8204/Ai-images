@@ -8,7 +8,7 @@ stages:
     * ControlNet requested + reference present  -> FLUX + ControlNet structure gen
     * otherwise                                 -> FLUX base
 - ``GENERATION_BACKEND=sdturbo`` (local CPU test): real SD-Turbo / small-SD
-- anything unavailable                          -> deterministic CPU stand-in
+- if no real model is available the job fails loudly (never a placeholder)
 
 Resolution, seed, guidance, and steps are honoured within configured bounds.
 InstantID/ControlNet conditioning happens HERE (at generation), so their dedicated
@@ -21,7 +21,6 @@ import hashlib
 import io
 
 from PIL import Image as PILImage
-from PIL import ImageDraw, ImageFont
 
 from ai_engine.models import loader
 from ai_engine.pipeline.base import StageContext, StageError
@@ -51,24 +50,6 @@ def _ref_image(ctx: StageContext):
     if not ctx.reference_images:
         return None
     return PILImage.open(io.BytesIO(ctx.reference_images[0])).convert("RGB")
-
-
-def _deterministic_image(prompt: str, seed: int, w: int, h: int) -> PILImage.Image:
-    """Reproducible placeholder so seed/prompt -> stable output (no model)."""
-
-    digest = hashlib.sha256(f"{prompt}:{seed}".encode()).digest()
-    r, g, b = digest[0], digest[1], digest[2]
-    r2, g2, b2 = digest[3], digest[4], digest[5]
-    img = PILImage.new("RGB", (w, h), (r, g, b))
-    draw = ImageDraw.Draw(img)
-    for y in range(h):
-        t = y / max(h - 1, 1)
-        draw.line([(0, y), (w, y)], fill=(int(r + (r2 - r) * t), int(g + (g2 - g) * t), int(b + (b2 - b) * t)))
-    try:
-        draw.text((12, 12), f"AI Mirror\nseed={seed}", fill=(255, 255, 255), font=ImageFont.load_default())
-    except Exception:  # noqa: BLE001
-        pass
-    return img
 
 
 # --------------------------------------------------------------------------- #
@@ -180,8 +161,11 @@ def run(ctx: StageContext) -> None:
         if backend == "sdturbo":
             if _run_sd(ctx, seed):
                 return
-            ctx.image = _deterministic_image(ctx.prompt, seed, w, h)
-            return
+            raise StageError(
+                name,
+                "model_unavailable",
+                "SD-Turbo backend is configured but the model could not be loaded.",
+            )
 
         # Production GPU backends, in priority order.
         if "instantid" in ctx.stages and ctx.reference_images and _run_instantid(ctx, seed, w, h, steps, guidance):
@@ -190,8 +174,15 @@ def run(ctx: StageContext) -> None:
             return
         if _run_flux(ctx, seed, w, h, steps, guidance):
             return
-        # Nothing available -> deterministic stand-in (keeps the flow working).
-        ctx.image = _deterministic_image(ctx.prompt, seed, w, h)
+        # No real model produced an image -> fail loudly. We never emit a
+        # placeholder: a failed job is refunded, a fake gradient would not be.
+        raise StageError(
+            name,
+            "model_unavailable",
+            "No generation model was available. For portraits, upload a reference "
+            "image and enable InstantID; text-only jobs need a configured "
+            "text-to-image model.",
+        )
     except StageError:
         raise
     except Exception as exc:  # noqa: BLE001

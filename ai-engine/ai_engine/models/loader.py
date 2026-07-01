@@ -3,9 +3,9 @@
 Models are loaded lazily on first use and cached process-wide (warm pool) so the
 weights stay resident across jobs. Every loader is wrapped so that a missing
 dependency, missing weights, or absent GPU returns ``None`` — the pipeline then
-falls back to a deterministic CPU stand-in with the identical I/O contract. This
-lets the exact same code run locally (CPU/no models) and in production (GPU with
-all models mounted) without branching elsewhere.
+tries the next backend in priority order and, if none is available, fails the
+job loudly (no placeholder output). Optional post-processing models (GFPGAN,
+RealESRGAN, rembg) simply skip when unavailable.
 
 Production deployment: see docs/gpu-deployment.md for the weights to mount and the
 env to set (``GENERATION_BACKEND=flux``, ``TORCH_DEVICE=cuda``).
