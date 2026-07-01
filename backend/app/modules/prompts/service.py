@@ -49,6 +49,14 @@ def compose(
     else:
         final = user_prompt
 
+    if not user_prompt:
+        # Style-only ("AI Mirror") mode: clean placeholder artifacts so a
+        # prompt with no user text reads naturally, e.g.
+        # "portrait of , dramatic" -> "portrait, dramatic".
+        final = re.sub(r"\bof\s*,", ",", final)
+        final = re.sub(r"\s*,\s*,", ",", final)
+        final = re.sub(r"\s{2,}", " ", final).strip(" ,")
+
     negatives = [n for n in (style_negative, user_negative) if n]
     final_negative = ", ".join(dict.fromkeys(", ".join(negatives).split(", "))).strip(", ")
 

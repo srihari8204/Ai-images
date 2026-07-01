@@ -20,7 +20,9 @@ class JobParams(BaseModel):
 
 
 class JobSubmitRequest(BaseModel):
-    prompt: str = Field(max_length=4000)
+    # Optional: a chosen style carries its own prompt template, so a bare
+    # style + selfie ("AI Mirror" mode) needs no free-text prompt.
+    prompt: str = Field(default="", max_length=4000)
     negative_prompt: str | None = Field(default=None, max_length=4000)
     style_slug: str | None = None
     stages: list[str] = Field(default_factory=lambda: ["generate"])

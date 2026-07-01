@@ -25,7 +25,12 @@ export default function StudioPage() {
   const esRef = useRef<EventSource | null>(null);
 
   useEffect(() => {
-    api<Style[]>("/api/v1/styles", { auth: false }).then(setStyles).catch(() => {});
+    api<Style[]>("/api/v1/styles", { auth: false })
+      .then((s) => {
+        setStyles(s);
+        if (s.length) setStyleSlug((cur) => cur || s[0].slug); // default a style
+      })
+      .catch(() => {});
     api<Balance>("/api/v1/credits/balance").then(setBalance).catch(() => {});
     return () => esRef.current?.close();
   }, []);
@@ -40,6 +45,8 @@ export default function StudioPage() {
       fd.append("file", file);
       const img = await api<{ id: string }>("/api/v1/uploads", { method: "POST", body: fd });
       setReferenceId(img.id);
+      // AI-Mirror flow: uploading a selfie turns on face mode + polish.
+      setStages((s) => Array.from(new Set([...s, "instantid", "gfpgan", "realesrgan"])));
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Upload failed");
     }
@@ -121,9 +128,9 @@ export default function StudioPage() {
           {balance && <span className="badge">Available: {balance.available} credits</span>}
         </div>
 
-        <label>Prompt</label>
+        <label>Details (optional)</label>
         <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)}
-          placeholder="a portrait in a neon-lit city, cinematic" />
+          placeholder="Optional — leave empty to use the style as-is" />
 
         <label>Style</label>
         <select value={styleSlug} onChange={(e) => setStyleSlug(e.target.value)}>
@@ -158,7 +165,7 @@ export default function StudioPage() {
         )}
 
         {error && <div className="error">{error}</div>}
-        <button className="primary" style={{ marginTop: 16 }} disabled={busy || !prompt}
+        <button className="primary" style={{ marginTop: 16 }} disabled={busy || !styleSlug}
           onClick={submit}>
           {busy ? "Submitting…" : "Generate"}
         </button>
@@ -166,7 +173,7 @@ export default function StudioPage() {
 
       <div className="card">
         <h3>Result</h3>
-        {!job && <p className="muted">Submit a prompt to start generating.</p>}
+        {!job && <p className="muted">Upload your photo, pick a style, and hit Generate.</p>}
         {job && (
           <>
             <div className="row" style={{ justifyContent: "space-between" }}>
