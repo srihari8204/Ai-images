@@ -5,21 +5,22 @@
 #     bash /workspace/Ai-images/deploy/runpod/boot.sh
 #
 # and put the 5 secrets in the pod's Environment Variables (they persist across
-# stop/start), so the worker comes back automatically every time you start the
-# GPU — no manual steps:
+# stop/start) so the worker returns automatically every time you start the GPU:
 #     REDIS_URL, DATABASE_URL, S3_ACCESS_KEY, S3_SECRET_KEY, SECRET_KEY
 #
-# Logs go to /workspace/boot.log. The container is held open even if the worker
-# exits, so the web terminal stays usable for debugging.
-exec > /workspace/boot.log 2>&1
-echo ">>> boot $(date 2>/dev/null || true)"
+# It starts our worker in the BACKGROUND, then hands control to RunPod's own
+# startup (/start.sh: Jupyter/SSH/web terminal) so the pod behaves normally and
+# RunPod's service/port responds. Worker logs -> /workspace/worker.log.
 
-cd /workspace/Ai-images 2>/dev/null || { echo "repo missing at /workspace/Ai-images"; sleep infinity; }
-git pull -q || true
+# Launch the GPU worker in the background (installs deps, loads models, listens).
+if [ -d /workspace/Ai-images ]; then
+  ( cd /workspace/Ai-images && git pull -q || true
+    nohup bash deploy/runpod/start-worker-instantid.sh > /workspace/worker.log 2>&1 & ) \
+    >> /workspace/boot.log 2>&1
+fi
 
-# start-worker-instantid.sh installs deps, ensures models, then execs the worker
-# (foreground). If it ever exits, fall through and keep the container alive.
-bash deploy/runpod/start-worker-instantid.sh || echo ">>> worker exited with an error"
-
-echo ">>> worker process ended; holding container open for the web terminal"
+# Hand off to RunPod's default startup so Jupyter/terminal/port come up.
+if [ -x /start.sh ]; then exec /start.sh; fi
+if [ -f /start.sh ]; then exec bash /start.sh; fi
+# No RunPod start script found — just keep the container alive.
 sleep infinity
