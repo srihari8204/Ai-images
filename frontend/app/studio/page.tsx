@@ -135,6 +135,45 @@ export default function StudioPage() {
     }
   };
 
+  // Batch a set of styles (one photo each) through the pack endpoint. Used by
+  // "Surprise Me" and per-category "Generate all". Requires an uploaded selfie.
+  const generatePack = async (slugs: string[], label: string) => {
+    if (!referenceId) {
+      setError("Upload your photo first — these styles put your face in each one.");
+      return;
+    }
+    if (!slugs.length) return;
+    setError(null);
+    setBatchMsg(null);
+    setBusy(true);
+    try {
+      const picked = slugs.slice(0, 20); // pack cap
+      await api("/api/v1/jobs/pack", {
+        method: "POST",
+        body: {
+          prompt: "",
+          style_slugs: picked,
+          variants_per_style: 1,
+          stages: ["generate", "instantid", "gfpgan", "realesrgan"],
+          reference_image_ids: [referenceId],
+        },
+        idempotencyKey: crypto.randomUUID(),
+      });
+      setBatchMsg(`${label}: ${picked.length} photos generating — see your Gallery.`);
+      api<Balance>("/api/v1/credits/balance").then(setBalance).catch(() => {});
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Submission failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const surpriseMe = () =>
+    generatePack(
+      [...styles].sort(() => Math.random() - 0.5).map((s) => s.slug),
+      "Surprise"
+    );
+
   const cancel = async () => {
     if (!job) return;
     await api(`/api/v1/jobs/${job.id}/cancel`, { method: "POST" });
@@ -162,7 +201,17 @@ export default function StudioPage() {
             }, {})
           ).map(([cat, list]) => (
             <div key={cat} style={{ marginBottom: 10 }}>
-              <div className="muted" style={{ fontSize: 12, margin: "6px 2px" }}>{cat}</div>
+              <div className="row" style={{ justifyContent: "space-between", alignItems: "center", margin: "6px 2px" }}>
+                <span className="muted" style={{ fontSize: 12 }}>{cat}</span>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => generatePack(list.map((s) => s.slug), cat)}
+                  style={{ fontSize: 11, padding: "2px 8px" }}
+                >
+                  Generate all
+                </button>
+              </div>
               <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(84px, 1fr))", gap: 8 }}>
                 {list.map((s) => (
                   <button
@@ -220,10 +269,14 @@ export default function StudioPage() {
         )}
 
         {error && <div className="error">{error}</div>}
-        <button className="primary" style={{ marginTop: 16 }} disabled={busy || !styleSlug}
-          onClick={submit}>
-          {busy ? "Submitting…" : "Generate"}
-        </button>
+        <div className="row" style={{ marginTop: 16, gap: 8 }}>
+          <button className="primary" disabled={busy || !styleSlug} onClick={submit}>
+            {busy ? "Submitting…" : "Generate"}
+          </button>
+          <button disabled={busy} onClick={surpriseMe} title="Generate a random mix of styles">
+            🎲 Surprise Me
+          </button>
+        </div>
       </div>
 
       <div className="card">
