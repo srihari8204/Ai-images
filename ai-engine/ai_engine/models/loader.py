@@ -155,6 +155,21 @@ def _load_rembg() -> Any | None:
     return new_session("u2net")
 
 
+def _load_inswapper() -> Any | None:
+    """insightface face-swap model (inswapper_128). Transplants the user's real
+    face onto the generated portrait for high-fidelity likeness. The weights are
+    fetched by deploy/runpod (setup) into ``<insightface_root>/models/``."""
+
+    import os
+
+    from insightface.model_zoo import get_model  # type: ignore
+
+    path = os.path.join(settings.insightface_root, "models", "inswapper_128.onnx")
+    if not os.path.exists(path):
+        return None
+    return get_model(path, download=False, download_zip=False)
+
+
 _LOADERS = {
     "flux.1": _load_flux,
     "flux-controlnet": _load_flux_controlnet,
@@ -163,6 +178,7 @@ _LOADERS = {
     "gfpgan": _load_gfpgan,
     "realesrgan": _load_realesrgan,
     "rembg": _load_rembg,
+    "inswapper": _load_inswapper,
 }
 
 

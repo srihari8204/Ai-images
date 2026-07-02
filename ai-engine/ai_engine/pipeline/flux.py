@@ -145,6 +145,25 @@ def _run_instantid(ctx: StageContext, seed: int, w: int, h: int, steps: int, gui
         width=w,
         generator=torch.Generator(device=settings.torch_device).manual_seed(seed),
     ).images[0]
+
+    # Face swap: transplant the user's ACTUAL face onto the generated portrait.
+    # InstantID only approximates the face; swapping the real face in gives
+    # high-fidelity likeness ("that's actually me"). Reuses the source face
+    # already detected from the reference. Best-effort: if it fails, keep the
+    # InstantID result.
+    swapper = loader.get_model("inswapper")
+    if swapper is not None:
+        try:
+            gen_bgr = np.array(ctx.image)[:, :, ::-1].copy()
+            targets = face_app.get(gen_bgr)
+            if targets:
+                tgt = sorted(
+                    targets, key=lambda f: (f.bbox[2] - f.bbox[0]) * (f.bbox[3] - f.bbox[1])
+                )[-1]
+                swapped = swapper.get(gen_bgr, tgt, face, paste_back=True)
+                ctx.image = PILImage.fromarray(swapped[:, :, ::-1])
+        except Exception:  # noqa: BLE001 - non-fatal; keep the InstantID output
+            pass
     return True
 
 

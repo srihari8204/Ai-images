@@ -81,5 +81,21 @@ if [ -n "$BASICSR_DEG" ] && [ -f "$BASICSR_DEG" ]; then
   echo ">>> patched basicsr for modern torchvision: $BASICSR_DEG"
 fi
 
+# ---- face-swap model (inswapper_128) for high-fidelity likeness ----
+# Transplants the user's real face onto the generated portrait. If the download
+# fails the pipeline just skips the swap (InstantID result still returned).
+SWAP="$INSIGHTFACE_ROOT/models/inswapper_128.onnx"
+if [ ! -f "$SWAP" ]; then
+  echo ">>> downloading inswapper_128 face-swap model"
+  mkdir -p "$INSIGHTFACE_ROOT/models"
+  HF_HUB_ENABLE_HF_TRANSFER=0 HF_HUB_DISABLE_XET=1 python - <<PY || echo ">>> WARN: inswapper download failed; face swap will be skipped"
+from huggingface_hub import hf_hub_download
+import shutil, os
+p = hf_hub_download("ezioruan/inswapper_128.onnx", "inswapper_128.onnx")
+shutil.copy(p, os.path.join("$INSIGHTFACE_ROOT", "models", "inswapper_128.onnx"))
+print(">>> inswapper ready")
+PY
+fi
+
 echo ">>> InstantID worker starting (first run downloads ~10 GB to /workspace; detach with Ctrl+B then D)"
 exec python -m ai_engine.worker
