@@ -153,21 +153,42 @@ export default function StudioPage() {
         <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)}
           placeholder="Optional — leave empty to use the style as-is" />
 
-        <label>Style ({styles.length})</label>
-        <select value={styleSlug} onChange={(e) => setStyleSlug(e.target.value)}>
+        <label>Style ({styles.length}) — tap to choose</label>
+        <div style={{ maxHeight: 380, overflowY: "auto", border: "1px solid #2a2a3a", borderRadius: 8, padding: 8 }}>
           {Object.entries(
             styles.reduce<Record<string, Style[]>>((acc, s) => {
               (acc[s.category] = acc[s.category] || []).push(s);
               return acc;
             }, {})
           ).map(([cat, list]) => (
-            <optgroup key={cat} label={cat}>
-              {list.map((s) => (
-                <option key={s.id} value={s.slug}>{s.name}</option>
-              ))}
-            </optgroup>
+            <div key={cat} style={{ marginBottom: 10 }}>
+              <div className="muted" style={{ fontSize: 12, margin: "6px 2px" }}>{cat}</div>
+              <div className="grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(84px, 1fr))", gap: 8 }}>
+                {list.map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => setStyleSlug(s.slug)}
+                    title={s.name}
+                    style={{
+                      padding: 0,
+                      border: styleSlug === s.slug ? "2px solid #7c5cff" : "1px solid #333",
+                      borderRadius: 8,
+                      overflow: "hidden",
+                      background: "#111",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <StylePreview slug={s.slug} />
+                    <div style={{ fontSize: 10, padding: "3px 2px", textAlign: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      {s.name}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
           ))}
-        </select>
+        </div>
 
         <label>Photos</label>
         <select value={photos} onChange={(e) => setPhotos(Number(e.target.value))}>
@@ -244,6 +265,22 @@ export default function StudioPage() {
         )}
       </div>
     </div>
+  );
+}
+
+function StylePreview({ slug }: { slug: string }) {
+  const [err, setErr] = useState(false);
+  if (err) {
+    return <div style={{ width: "100%", aspectRatio: "1", background: "#222" }} />;
+  }
+  return (
+    <img
+      src={`${API_BASE}/api/v1/styles/${slug}/preview`}
+      alt=""
+      loading="lazy"
+      onError={() => setErr(true)}
+      style={{ width: "100%", aspectRatio: "1", objectFit: "cover", display: "block" }}
+    />
   );
 }
 

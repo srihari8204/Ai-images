@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Response
+from fastapi.responses import RedirectResponse
 
+from app.core.config import settings
 from app.core.dependencies import DbSession
 from app.core.errors import NotFoundError
 from app.modules.styles import service
 from app.modules.styles.schemas import StyleDetail, StyleSummary
+from app.storage import object_store
 
 router = APIRouter(prefix="/styles", tags=["styles"])
 
@@ -16,6 +19,15 @@ router = APIRouter(prefix="/styles", tags=["styles"])
 async def list_styles(db: DbSession, response: Response) -> list[StyleSummary]:
     response.headers["Cache-Control"] = "public, max-age=300"
     return [StyleSummary(**s) for s in await service.list_active_styles(db)]
+
+
+@router.get("/{slug}/preview", summary="Style preview thumbnail (redirect)")
+async def style_preview(slug: str) -> RedirectResponse:
+    """Redirect to a presigned URL for the style's preview image. Returns a URL
+    even if the preview hasn't been generated yet; the client falls back to a
+    placeholder on load error."""
+    url = object_store.presign_get(settings.bucket_outputs, f"previews/{slug}.png")
+    return RedirectResponse(url, status_code=307)
 
 
 @router.get("/{slug}", response_model=StyleDetail, summary="Style detail")
