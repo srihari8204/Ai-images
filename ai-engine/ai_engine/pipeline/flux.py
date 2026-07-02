@@ -25,6 +25,9 @@ from PIL import Image as PILImage
 from ai_engine.models import loader
 from ai_engine.pipeline.base import StageContext, StageError
 from app.core.config import settings
+from app.core.logging import get_logger
+
+logger = get_logger(__name__)
 
 name = "generate"
 
@@ -176,18 +179,23 @@ def _run_instantid(ctx: StageContext, seed: int, w: int, h: int, steps: int, gui
     # already detected from the reference. Best-effort: if it fails, keep the
     # InstantID result.
     swapper = loader.get_model("inswapper")
-    if swapper is not None:
+    if swapper is None:
+        logger.warning("face_swap_unavailable", job_id=ctx.job_id)
+    else:
         try:
             gen_bgr = np.array(ctx.image)[:, :, ::-1].copy()
             targets = face_app.get(gen_bgr)
-            if targets:
+            if not targets:
+                logger.warning("face_swap_no_target", job_id=ctx.job_id)
+            else:
                 tgt = sorted(
                     targets, key=lambda f: (f.bbox[2] - f.bbox[0]) * (f.bbox[3] - f.bbox[1])
                 )[-1]
                 swapped = swapper.get(gen_bgr, tgt, face, paste_back=True)
                 ctx.image = PILImage.fromarray(swapped[:, :, ::-1])
-        except Exception:  # noqa: BLE001 - non-fatal; keep the InstantID output
-            pass
+                logger.info("face_swap_applied", job_id=ctx.job_id)
+        except Exception as exc:  # noqa: BLE001 - non-fatal; keep the InstantID output
+            logger.warning("face_swap_failed", job_id=ctx.job_id, error=repr(exc))
     return True
 
 
