@@ -29,4 +29,9 @@ inflight_jobs = Gauge("worker_inflight_jobs", "Jobs currently being processed")
 
 
 def start_metrics_server(port: int = 9100) -> None:
-    start_http_server(port)
+    # Non-fatal: if the port is already taken (e.g. another worker on the same
+    # host, or a lingering socket), skip metrics rather than crash the worker.
+    try:
+        start_http_server(port)
+    except OSError:
+        pass
