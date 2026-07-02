@@ -35,5 +35,32 @@ export S3_PUBLIC_ENDPOINT_URL=https://7fd1208c57579b53f47307ade895aa3c.r2.cloudf
 export PYTHONPATH="$REPO/backend:$REPO/ai-engine:/workspace/InstantID"
 
 git pull -q || true
-echo ">>> generating style previews (this can take ~1-2 hours for the full catalog)"
+
+# InstantID source (also provides the stock example faces used for previews).
+if [ ! -f /workspace/InstantID/pipeline_stable_diffusion_xl_instantid.py ]; then
+  rm -rf /workspace/InstantID
+  git clone --depth 1 https://github.com/instantX-research/InstantID /workspace/InstantID
+fi
+
+# Deps (idempotent). A fresh pod loses pip packages, so ensure them here too.
+pip install -r backend/requirements.txt --ignore-installed -q
+pip install diffusers==0.32.1 transformers==4.48.0 accelerate safetensors sentencepiece protobuf -q
+pip install insightface==0.7.3 opencv-python-headless -q
+pip uninstall -y onnxruntime-gpu >/dev/null 2>&1 || true
+pip install "onnxruntime>=1.17" -q
+
+# Face models (antelopev2 + inswapper) if missing.
+[ -f "$INSIGHTFACE_ROOT/models/antelopev2/scrfd_10g_bnkps.onnx" ] || bash deploy/runpod/setup-antelopev2.sh || true
+if [ ! -f "$INSIGHTFACE_ROOT/models/inswapper_128.onnx" ]; then
+  mkdir -p "$INSIGHTFACE_ROOT/models"
+  python - <<PY || echo ">>> WARN: inswapper download failed"
+from huggingface_hub import hf_hub_download
+import shutil, os
+p = hf_hub_download("ezioruan/inswapper_128.onnx", "inswapper_128.onnx")
+shutil.copy(p, os.path.join("$INSIGHTFACE_ROOT", "models", "inswapper_128.onnx"))
+print(">>> inswapper ready")
+PY
+fi
+
+echo ">>> generating style previews (first one downloads the base model; full catalog ~1 hour)"
 exec python -m ai_engine.preview_gen
