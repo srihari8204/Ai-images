@@ -78,6 +78,33 @@ def _run_sd(ctx: StageContext, seed: int) -> bool:
     return True
 
 
+def _frame_reference(ref, faces, w: int, h: int):
+    """Crop a head-and-shoulders region centered on the largest face, with
+    headroom, then resize to (w, h). Prevents the output from being cropped at
+    the forehead/chin. Falls back to a plain cover-crop if no face is found."""
+    from PIL import Image as _PILImage
+    from PIL import ImageOps as _ImageOps
+
+    if not faces:
+        return _ImageOps.fit(ref, (w, h))
+    f = sorted(faces, key=lambda x: (x.bbox[2] - x.bbox[0]) * (x.bbox[3] - x.bbox[1]))[-1]
+    x1, y1, x2, y2 = f.bbox
+    fw, fh = (x2 - x1), (y2 - y1)
+    cx, cy = (x1 + x2) / 2.0, (y1 + y2) / 2.0
+    side = max(fw, fh) * 2.3  # room for full head + shoulders + margin
+    left = int(round(cx - side / 2.0))
+    top = int(round(cy - side * 0.42))  # extra room above for hair/headroom
+    side = int(round(side))
+    # PIL.crop pads out-of-bounds regions with black; paste onto a canvas first
+    # so we always get a clean square without hard black bars from the crop.
+    canvas = _PILImage.new("RGB", (side, side), (20, 20, 20))
+    sx, sy = max(0, -left), max(0, -top)
+    region = ref.crop((max(0, left), max(0, top),
+                       min(ref.width, left + side), min(ref.height, top + side)))
+    canvas.paste(region, (sx, sy))
+    return canvas.resize((w, h))
+
+
 def _run_instantid(ctx: StageContext, seed: int, w: int, h: int, steps: int, guidance: float) -> bool:
     bundle = loader.get_model("instantid")
     ref = _ref_image(ctx)
@@ -87,18 +114,15 @@ def _run_instantid(ctx: StageContext, seed: int, w: int, h: int, steps: int, gui
     import torch  # type: ignore
     from pipeline_stable_diffusion_xl_instantid import draw_kps  # type: ignore
 
-    from PIL import ImageOps  # type: ignore
-
     face_app, pipe = bundle["face_app"], bundle["pipe"]
 
-    # Fit the reference to the OUTPUT size (cover + center-crop) so the keypoint
-    # control image matches (w, h). Without this, a portrait selfie's keypoints
-    # get squished into a square canvas -> the extreme nose/mouth close-ups and
-    # distorted crops. Detecting the face on the fitted image keeps kps aligned.
-    ref_fit = ImageOps.fit(ref, (w, h))
-    faces = face_app.get(np.array(ref_fit)[:, :, ::-1])  # BGR
+    # Face-aware framing: detect the face on the original reference, crop a proper
+    # head-and-shoulders region (with headroom) sized to the output, then use that
+    # as the keypoint control reference so the result is a well-framed portrait.
+    faces0 = face_app.get(np.array(ref)[:, :, ::-1])  # BGR
+    ref_fit = _frame_reference(ref, faces0, w, h)
+    faces = face_app.get(np.array(ref_fit)[:, :, ::-1])
     if not faces:
-        # Fall back to the raw reference if the crop lost the face.
         ref_fit = ref
         faces = face_app.get(np.array(ref_fit)[:, :, ::-1])
     if not faces:
