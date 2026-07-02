@@ -1,0 +1,229 @@
+"""Large browsable style catalog (~150 styles across ~20 categories).
+
+Data-driven so the catalog can grow to 500+ without touching seed logic. Each
+style is a self-sufficient prompt (no user text needed): the generation pipeline
+prepends the subject ("a man/woman, ... head and shoulders portrait") and, for
+face jobs, swaps in the real face. Templates describe only the LOOK.
+
+`catalog_styles()` yields dicts shaped for the Style model, matching seed.py.
+"""
+
+from __future__ import annotations
+
+# Shared negatives.
+_NEG = (
+    "lowres, worst quality, low quality, blurry, deformed, disfigured, "
+    "extra fingers, mutated hands, bad anatomy, watermark, text, cropped"
+)
+
+# category -> [(slug, display name, look descriptor)]
+CATALOG: dict[str, list[tuple[str, str, str]]] = {
+    "Animation": [
+        ("pixar_3d", "Pixar 3D", "3d pixar-style animated character, soft global illumination, big expressive eyes, vibrant"),
+        ("anime_hero", "Anime Hero", "vibrant anime hero, cel shading, dynamic lighting, detailed eyes"),
+        ("chibi_cute", "Chibi Cute", "adorable chibi character, big head, tiny body, kawaii, pastel"),
+        ("cartoon_toon", "Cartoon", "modern cartoon character, bold outlines, flat vivid colors, playful"),
+        ("claymation_clay", "Claymation", "claymation stop-motion character, plasticine texture, studio light"),
+        ("disney_90s", "90s Disney", "hand-drawn 90s disney animation style, warm colors, expressive"),
+        ("ghibli_soft", "Storybook Anime", "soft painterly storybook anime, gentle light, watercolor backgrounds"),
+        ("comic_ink", "Comic Book", "comic book art, bold inks, halftone dots, dynamic pose"),
+        ("manga_bw", "Manga", "black and white manga panel, ink, screentone, dramatic"),
+        ("lowpoly_3d", "Low Poly", "low poly 3d render, geometric facets, flat shading, stylized"),
+        ("toon_sticker", "Toon Sticker", "cute cartoon sticker, thick white outline, glossy, vibrant"),
+        ("cgi_movie", "CGI Movie", "high-end cgi animated movie character, cinematic render, detailed"),
+    ],
+    "Emoji & Sticker": [
+        ("emoji_face", "Emoji", "expressive 3d emoji style, glossy, rounded, bright colors"),
+        ("sticker_glossy", "Glossy Sticker", "die-cut glossy sticker, thick outline, vivid, playful"),
+        ("kawaii_pastel", "Kawaii", "kawaii pastel character, cute, soft shading, adorable"),
+        ("meme_fun", "Meme", "funny exaggerated meme caricature, bold, comedic"),
+        ("line_sticker", "Chat Sticker", "messaging app sticker, simple cute character, expressive, flat colors"),
+        ("bobblehead", "Bobblehead", "cute bobblehead figure, oversized head, glossy toy, studio shot"),
+        ("caricature_fun", "Caricature", "playful caricature, exaggerated features, colorful, humorous"),
+        ("pop_emoji", "Pop Emoji", "pop-art emoji, ben-day dots, bold flat color, fun"),
+    ],
+    "Cinematic": [
+        ("cinematic_film", "Cinematic", "cinematic still, dramatic lighting, film grain, shallow depth of field"),
+        ("noir_film", "Film Noir", "film noir, black and white, venetian-blind shadows, moody"),
+        ("blockbuster", "Blockbuster", "epic blockbuster movie still, teal and orange grade, dramatic"),
+        ("thriller_dark", "Thriller", "dark thriller movie still, tense mood, low key lighting"),
+        ("western_dust", "Western", "spaghetti western, dusty golden light, rugged, cinematic"),
+        ("bollywood", "Bollywood", "vibrant bollywood movie poster, dramatic, colorful, glamorous"),
+        ("hollywood_glam", "Hollywood", "classic hollywood glamour, studio lighting, timeless, elegant"),
+        ("epic_drama", "Epic Drama", "epic dramatic portrait, sweeping cinematic light, intense"),
+        ("indie_moody", "Indie Film", "moody indie film still, natural light, muted tones, intimate"),
+        ("action_movie", "Action Movie", "action movie hero still, dynamic, explosive backdrop, cinematic"),
+    ],
+    "Fantasy": [
+        ("elf_ranger", "Elf", "elegant elf ranger, pointed ears, ethereal forest, fantasy art"),
+        ("wizard_arcane", "Wizard", "arcane wizard, glowing runes, mystical robes, dramatic fantasy"),
+        ("warrior_epic", "Warrior", "epic fantasy warrior, ornate armor, battle-worn, dramatic light"),
+        ("fairy_glow", "Fairy", "luminous fairy, delicate wings, glowing dust, enchanted"),
+        ("dragon_rider", "Dragon Rider", "dragon rider, epic scale, fantasy armor, dramatic sky"),
+        ("royal_monarch", "Royalty", "regal monarch, ornate crown and robes, palace, opulent"),
+        ("knight_medieval", "Knight", "medieval knight in shining armor, castle, heroic, painterly"),
+        ("sorcerer_dark", "Sorcerer", "dark sorcerer, shadow magic, ominous, intricate detail"),
+        ("enchanted_forest", "Enchanted", "enchanted portrait, glowing flora, magical atmosphere"),
+        ("mythic_god", "Mythic", "mythical deity, divine glow, marble and gold, epic"),
+    ],
+    "Sci-Fi": [
+        ("cyberpunk_neon", "Cyberpunk", "cyberpunk, neon lights, rain, futuristic city, blade-runner mood"),
+        ("astronaut", "Astronaut", "astronaut in a detailed space suit, starfield, cinematic"),
+        ("android_bot", "Android", "sleek android with subtle cybernetics, glowing accents, futuristic"),
+        ("space_marine", "Space Marine", "armored space marine, sci-fi battlefield, dramatic"),
+        ("hologram", "Hologram", "holographic digital portrait, glitch, neon wireframe, futuristic"),
+        ("mecha_pilot", "Mecha Pilot", "mecha pilot, high-tech cockpit, glowing hud, anime sci-fi"),
+        ("dystopia", "Dystopian", "gritty dystopian future, industrial, moody, cinematic"),
+        ("neon_future", "Neon Future", "neon-soaked futuristic portrait, vibrant, high tech"),
+        ("alien_world", "Alien World", "explorer on an alien world, strange skies, epic sci-fi"),
+        ("time_traveler", "Time Traveler", "time traveler, retro-futuristic gear, swirling energy"),
+    ],
+    "Vintage & Retro": [
+        ("vintage_70s", "70s Film", "vintage 1970s film photo, kodak grain, warm faded tones"),
+        ("vintage_50s", "50s Classic", "1950s classic portrait, rockabilly, vintage color"),
+        ("y2k_shine", "Y2K", "Y2K early-2000s aesthetic, glossy metallic, holographic, retro digital"),
+        ("retro_80s", "80s Retro", "1980s retro, bold neon, synth aesthetic, grainy"),
+        ("sepia_old", "Sepia", "antique sepia-toned portrait, aged paper, timeless"),
+        ("polaroid", "Polaroid", "instant polaroid snapshot, soft flash, nostalgic, faded border"),
+        ("victorian", "Victorian", "victorian era portrait, formal attire, painterly, moody"),
+        ("disco_70s", "Disco", "70s disco glamour, sparkle, colored lights, groovy"),
+        ("old_hollywood", "Old Hollywood", "1940s old hollywood black and white glamour, elegant"),
+        ("grunge_90s", "90s Grunge", "90s grunge aesthetic, film grain, moody, casual"),
+    ],
+    "Professional": [
+        ("headshot_pro", "Pro Headshot", "professional corporate headshot, softbox lighting, neutral background, bokeh"),
+        ("linkedin", "LinkedIn", "clean professional linkedin portrait, friendly, business casual, bright"),
+        ("corporate", "Corporate", "corporate executive portrait, suit, office backdrop, confident"),
+        ("passport", "Passport", "formal passport-style photo, plain background, front facing, even lighting"),
+        ("doctor", "Doctor", "professional doctor portrait, white coat, clinic, trustworthy"),
+        ("lawyer", "Lawyer", "professional lawyer portrait, formal suit, office, authoritative"),
+        ("ceo_boss", "CEO", "powerful ceo portrait, tailored suit, modern office, commanding"),
+        ("teacher", "Teacher", "warm teacher portrait, approachable, classroom, natural light"),
+        ("entrepreneur", "Entrepreneur", "modern entrepreneur portrait, smart casual, startup vibe, bright"),
+        ("resume", "Resume", "polished resume headshot, professional, clean, confident smile"),
+    ],
+    "Fashion": [
+        ("high_fashion_ed", "High Fashion", "high fashion editorial, couture wardrobe, dramatic studio lighting, vogue"),
+        ("vogue_cover", "Vogue Cover", "vogue magazine cover, glamorous, bold, professional"),
+        ("streetwear", "Streetwear", "urban streetwear, cool, graffiti backdrop, trendy"),
+        ("runway", "Runway", "fashion runway model, spotlights, confident, editorial"),
+        ("glamour_beauty", "Glamour", "glamour beauty portrait, flawless skin, beauty lighting, magazine"),
+        ("editorial_avant", "Avant-Garde", "avant-garde fashion editorial, artistic, bold styling"),
+        ("model_studio", "Model", "professional model studio shot, clean lighting, elegant"),
+        ("urban_chic", "Urban Chic", "urban chic portrait, stylish outfit, city backdrop, moody"),
+        ("luxury", "Luxury", "luxury lifestyle portrait, opulent, golden accents, refined"),
+        ("denim_casual", "Casual Cool", "effortless casual cool, denim, natural light, relaxed"),
+    ],
+    "Artistic": [
+        ("oil_paint", "Oil Painting", "classical oil painting, visible brush strokes, rich color"),
+        ("watercolor", "Watercolor", "delicate watercolor painting, soft washes, paper texture"),
+        ("pencil_sketch", "Pencil Sketch", "detailed pencil sketch, graphite, cross-hatching, paper"),
+        ("pop_art", "Pop Art", "pop art, bold flat colors, ben-day dots, high contrast"),
+        ("charcoal", "Charcoal", "expressive charcoal drawing, smudged shadows, dramatic"),
+        ("renaissance", "Renaissance", "renaissance old-masters oil portrait, chiaroscuro, museum quality"),
+        ("impressionist", "Impressionist", "impressionist painting, loose brushwork, dappled light"),
+        ("ink_wash", "Ink Wash", "east-asian ink wash painting, minimal, elegant brushwork"),
+        ("pastel_soft", "Pastel", "soft pastel drawing, gentle colors, dreamy, textured"),
+        ("graffiti_art", "Graffiti", "vibrant graffiti street-art portrait, spray paint, urban"),
+        ("mosaic", "Mosaic", "ornate mosaic portrait, tiles, byzantine, golden"),
+        ("stained_glass", "Stained Glass", "stained glass portrait, bold leading, glowing colored panes"),
+    ],
+    "Festival & Cultural": [
+        ("diwali", "Diwali", "festive diwali portrait, diyas, warm golden lights, marigolds, celebratory"),
+        ("holi", "Holi", "vibrant holi festival, colorful powder splashes, joyful"),
+        ("christmas", "Christmas", "cozy christmas portrait, twinkling lights, festive, warm glow"),
+        ("halloween", "Halloween", "spooky halloween portrait, moody, pumpkins, atmospheric"),
+        ("traditional_indian", "Traditional Indian", "elegant traditional indian attire, rich fabrics, ornate, festive"),
+        ("kimono", "Kimono", "traditional japanese kimono portrait, elegant, cherry blossoms"),
+        ("arabian", "Arabian", "arabian royal attire, ornate, golden, majestic"),
+        ("mexican_fiesta", "Fiesta", "vibrant mexican fiesta, colorful, festive, folk art"),
+        ("lunar_newyear", "Lunar New Year", "lunar new year portrait, red and gold, lanterns, festive"),
+        ("carnival", "Carnival", "brazilian carnival, feathers, sparkle, vibrant, joyful"),
+    ],
+    "Seasonal": [
+        ("summer_beach", "Summer", "sunny summer beach portrait, golden light, breezy, vibrant"),
+        ("winter_snow", "Winter", "cozy winter portrait, snow, soft light, warm layers"),
+        ("autumn_leaves", "Autumn", "autumn portrait, falling leaves, warm golden tones"),
+        ("spring_bloom", "Spring", "spring portrait, blooming flowers, soft pastel light, fresh"),
+        ("rainy_mood", "Rainy Day", "moody rainy day portrait, reflections, soft window light"),
+        ("tropical", "Tropical", "tropical paradise portrait, palms, vivid, sunny"),
+        ("golden_hour", "Golden Hour", "golden hour portrait, warm sun flare, soft glow, dreamy"),
+        ("northern_lights", "Aurora", "portrait under the northern lights, magical, starry, cool tones"),
+    ],
+    "Gaming": [
+        ("gamer_rgb", "Gamer", "epic gamer avatar, neon RGB lighting, futuristic esports, dramatic"),
+        ("rpg_hero", "RPG Hero", "fantasy rpg hero character, detailed gear, game art"),
+        ("pixel_art", "Pixel Art", "retro pixel art character, 16-bit, colorful, crisp pixels"),
+        ("voxel", "Voxel", "cute voxel 3d character, blocky, colorful, playful render"),
+        ("esports", "Esports", "esports pro portrait, team jersey, arena lights, intense"),
+        ("arcade_retro", "Arcade", "retro arcade aesthetic, neon, 80s game vibe"),
+        ("battle_royale", "Battle Royale", "battle royale game character, tactical gear, stylized render"),
+        ("fantasy_mmo", "MMO Hero", "epic mmo character splash art, ornate, dramatic"),
+    ],
+    "Superhero": [
+        ("superhero_caped", "Superhero", "epic caped superhero, dynamic pose, city skyline, comic cinematic"),
+        ("comic_hero", "Comic Hero", "comic book superhero, bold inks, action, halftone"),
+        ("dark_vigilante", "Vigilante", "dark masked vigilante, moody city night, gritty"),
+        ("cosmic_hero", "Cosmic Hero", "cosmic superhero, glowing energy, galaxy backdrop, epic"),
+        ("super_villain", "Villain", "menacing super villain, dramatic, dark, powerful"),
+        ("armored_hero", "Armored Hero", "high-tech armored superhero, glowing suit, cinematic"),
+        ("speedster", "Speedster", "speedster superhero, motion energy trails, dynamic"),
+        ("mystic_hero", "Mystic Hero", "mystic superhero, magical energy, glowing sigils, epic"),
+    ],
+    "Historical": [
+        ("egypt_pharaoh", "Egyptian", "ancient egyptian royalty, gold headdress, hieroglyphs, majestic"),
+        ("roman_emperor", "Roman", "roman emperor, laurel wreath, toga, marble, classical"),
+        ("samurai", "Samurai", "noble samurai, ornate armor, cherry blossoms, dramatic"),
+        ("viking", "Viking", "rugged viking warrior, furs, braids, cold epic landscape"),
+        ("cowboy", "Cowboy", "wild-west cowboy, hat, dusty saloon, cinematic"),
+        ("gatsby_20s", "1920s Gatsby", "roaring 1920s gatsby glamour, art deco, elegant"),
+        ("pirate", "Pirate", "swashbuckling pirate, weathered, ship deck, dramatic"),
+        ("noble_renaissance", "Renaissance Noble", "renaissance noble, ornate period attire, painterly, regal"),
+    ],
+    "3D & Toys": [
+        ("figurine_vinyl", "Figurine", "collectible vinyl figurine, studio product shot, soft shadows"),
+        ("funko", "Funko Style", "cute big-head vinyl figure, glossy, collectible, studio"),
+        ("action_figure", "Action Figure", "detailed action figure in blister packaging, product shot"),
+        ("clay_toy", "Clay Toy", "handmade clay toy character, soft, cute, studio light"),
+        ("plush_toy", "Plush Toy", "soft plush toy version, fuzzy fabric, adorable, studio"),
+        ("lego_brick", "Brick Figure", "blocky brick-toy minifigure, glossy, playful render"),
+        ("crystal_3d", "Crystal", "translucent crystal 3d sculpture, refractive, glowing"),
+        ("gold_statue", "Gold Statue", "polished golden statue portrait, marble base, museum light"),
+    ],
+    "Portrait & Beauty": [
+        ("bw_portrait", "B&W Portrait", "black and white fine-art portrait, dramatic rim light, high contrast"),
+        ("beauty_soft", "Beauty", "soft beauty portrait, flawless skin, gentle light, elegant"),
+        ("dramatic_light", "Dramatic", "dramatic portrait, single key light, deep shadows, intense"),
+        ("natural_light", "Natural", "natural light portrait, soft window light, authentic, warm"),
+        ("studio_clean", "Studio", "clean studio portrait, seamless backdrop, professional lighting"),
+        ("moody_dark", "Moody", "moody low-key portrait, atmospheric, cinematic shadows"),
+        ("hdr_vivid", "HDR Vivid", "vivid HDR portrait, crisp detail, vibrant color, punchy"),
+        ("film_portrait", "Film Look", "analog film portrait, soft grain, natural color, timeless"),
+    ],
+    "Fun & Creative": [
+        ("superhero_baby", "Baby Hero", "cute stylized baby superhero, adorable, comic style"),
+        ("muscle_buff", "Buff", "humorously buff muscular caricature, comedic, dynamic"),
+        ("tiny_planet", "Tiny Planet", "whimsical tiny-planet portrait, miniature world, playful"),
+        ("double_exposure", "Double Exposure", "artistic double-exposure portrait, silhouette blended with nature"),
+        ("neon_paint", "Neon Paint", "neon paint splash portrait, glowing, vibrant, energetic"),
+        ("ice_fire", "Ice & Fire", "dramatic portrait split between ice and fire, epic, glowing"),
+        ("galaxy_dust", "Galaxy", "portrait made of galaxy and stardust, cosmic, glowing"),
+        ("paper_craft", "Paper Craft", "layered paper-craft portrait, cut paper, soft shadows, cute"),
+    ],
+}
+
+
+def catalog_styles():
+    """Yield Style-shaped dicts for every catalog entry."""
+    for category, items in CATALOG.items():
+        for slug, name, descriptor in items:
+            yield dict(
+                slug=slug,
+                name=name,
+                category=category,
+                template=f"{descriptor}, portrait",
+                negative_prompt=_NEG,
+                cost_multiplier=1.0,
+                plan_gate=None,
+                default_params={"steps": 30, "guidance": 5.0},
+            )

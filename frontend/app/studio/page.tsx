@@ -153,13 +153,19 @@ export default function StudioPage() {
         <textarea value={prompt} onChange={(e) => setPrompt(e.target.value)}
           placeholder="Optional — leave empty to use the style as-is" />
 
-        <label>Style</label>
+        <label>Style ({styles.length})</label>
         <select value={styleSlug} onChange={(e) => setStyleSlug(e.target.value)}>
-          <option value="">None</option>
-          {styles.map((s) => (
-            <option key={s.id} value={s.slug}>
-              {s.name}
-            </option>
+          {Object.entries(
+            styles.reduce<Record<string, Style[]>>((acc, s) => {
+              (acc[s.category] = acc[s.category] || []).push(s);
+              return acc;
+            }, {})
+          ).map(([cat, list]) => (
+            <optgroup key={cat} label={cat}>
+              {list.map((s) => (
+                <option key={s.id} value={s.slug}>{s.name}</option>
+              ))}
+            </optgroup>
           ))}
         </select>
 

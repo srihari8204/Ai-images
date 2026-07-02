@@ -218,8 +218,15 @@ def _seed_plans(db: Session) -> None:
 
 
 def _seed_styles(db: Session) -> None:
-    for s in STYLES:
-        if not db.execute(select(Style).where(Style.slug == s["slug"])).scalar_one_or_none():
+    from app.db.style_catalog import catalog_styles
+
+    seen: set[str] = set()
+    for s in list(STYLES) + list(catalog_styles()):
+        slug = s["slug"]
+        if slug in seen:
+            continue
+        seen.add(slug)
+        if not db.execute(select(Style).where(Style.slug == slug)).scalar_one_or_none():
             db.add(Style(**s))
 
 
